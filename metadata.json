@@ -1,0 +1,7 @@
+{
+  "name": "Premium Web store",
+  "description": "Trending AI Prompts, Digital Assets & Web Tools Marketplace with instant prompt copy, customizable variables, and creator resources.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
