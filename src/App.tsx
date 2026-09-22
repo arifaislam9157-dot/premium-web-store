@@ -54,7 +54,62 @@ export default function App() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isLightMode, setIsLightMode] = useState(false);
 
-  // Load initial store data & favorites
+  // Sync URL changes (e.g. /admin, /ai-test-lab, /image-toolkit, /prompt/:id, #admin, etc.)
+  const syncRouteFromLocation = (promptsList: PromptItem[] = storeData.prompts) => {
+    const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+    const hash = window.location.hash.toLowerCase();
+
+    // 1. /admin or #admin route opens Admin Panel directly
+    if (pathname === '/admin' || hash === '#admin') {
+      setAdminOpen(true);
+      return;
+    }
+
+    // 2. /ai-test-lab
+    if (pathname === '/ai-test-lab' || hash === '#ai-test-lab') {
+      setCurrentView('ai-test-lab');
+      setActivePrompt(null);
+      setAdminOpen(false);
+      return;
+    }
+
+    // 3. /image-toolkit
+    if (pathname === '/image-toolkit' || hash === '#image-toolkit') {
+      setCurrentView('image-toolkit');
+      setActivePrompt(null);
+      setAdminOpen(false);
+      return;
+    }
+
+    // 4. /prompt/:id or #prompt-:id
+    let promptId: string | null = null;
+    if (pathname.startsWith('/prompt/')) {
+      promptId = pathname.replace('/prompt/', '');
+    } else if (hash.startsWith('#prompt-')) {
+      promptId = hash.replace('#prompt-', '');
+    }
+
+    if (promptId && promptsList.length > 0) {
+      const match = promptsList.find((p) => p.id === promptId);
+      if (match) {
+        setActivePrompt(match);
+        setCurrentView('single-post');
+        setAdminOpen(false);
+        return;
+      }
+    }
+
+    // Default root path
+    if (pathname === '/' && !hash) {
+      setAdminOpen(false);
+      if (currentView === 'single-post') {
+        setActivePrompt(null);
+        setCurrentView('home');
+      }
+    }
+  };
+
+  // Load initial store data & favorites + listen to browser routing
   useEffect(() => {
     async function init() {
       const data = await fetchStoreData();
@@ -65,8 +120,22 @@ export default function App() {
         setIsLightMode(true);
         document.body.classList.add('light-mode');
       }
+
+      // Check URL route immediately on load with retrieved data
+      syncRouteFromLocation(data.prompts);
     }
     init();
+
+    // Listen to browser Back/Forward & hash changes
+    const onLocationChange = () => {
+      syncRouteFromLocation();
+    };
+    window.addEventListener('popstate', onLocationChange);
+    window.addEventListener('hashchange', onLocationChange);
+    return () => {
+      window.removeEventListener('popstate', onLocationChange);
+      window.removeEventListener('hashchange', onLocationChange);
+    };
   }, []);
 
   // Theme Toggle
@@ -167,6 +236,10 @@ export default function App() {
   const handleOpenDetail = (prompt: PromptItem) => {
     setActivePrompt(prompt);
     setCurrentView('single-post');
+    setAdminOpen(false);
+    if (window.location.pathname !== `/prompt/${prompt.id}`) {
+      window.history.pushState(null, '', `/prompt/${prompt.id}`);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
     logAnalytics('view', prompt.id);
     setStoreData((prev) => ({
@@ -177,9 +250,19 @@ export default function App() {
     }));
   };
 
+  // Back from single post to home
+  const handleBackFromSinglePost = () => {
+    setActivePrompt(null);
+    setCurrentView('home');
+    if (window.location.pathname.startsWith('/prompt/')) {
+      window.history.pushState(null, '', '/');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // Share prompt
   const handleSharePrompt = (prompt: PromptItem) => {
-    const shareUrl = `${window.location.origin}/#prompt-${prompt.id}`;
+    const shareUrl = `${window.location.origin}/prompt/${prompt.id}`;
     if (navigator.share) {
       navigator
         .share({
@@ -194,17 +277,42 @@ export default function App() {
     }
   };
 
+  // Open Admin Panel and push URL /admin
+  const handleOpenAdmin = () => {
+    setAdminOpen(true);
+    const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+    if (pathname !== '/admin') {
+      window.history.pushState(null, '', '/admin');
+    }
+  };
+
+  // Close Admin Panel and revert URL back to / if it was /admin
+  const handleCloseAdmin = () => {
+    setAdminOpen(false);
+    setEditPromptTarget(null);
+    const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+    if (pathname === '/admin' || window.location.hash.toLowerCase() === '#admin') {
+      window.history.pushState(null, '', '/');
+    }
+  };
+
   // Direct Edit Prompt from card or single post view
   const handleEditPrompt = (prompt: PromptItem) => {
     setEditPromptTarget(prompt);
-    setAdminOpen(true);
+    handleOpenAdmin();
   };
 
   // Navigation handler from header
   const handleNavigate = (view: 'home' | 'ai-test-lab' | 'image-toolkit') => {
     setCurrentView(view);
+    setAdminOpen(false);
     if (view === 'home') {
       setActivePrompt(null);
+      window.history.pushState(null, '', '/');
+    } else if (view === 'ai-test-lab') {
+      window.history.pushState(null, '', '/ai-test-lab');
+    } else if (view === 'image-toolkit') {
+      window.history.pushState(null, '', '/image-toolkit');
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -500,10 +608,7 @@ export default function App() {
         {currentView === 'single-post' && activePrompt && (
           <SinglePostView
             prompt={activePrompt}
-            onBack={() => {
-              setActivePrompt(null);
-              setCurrentView('home');
-            }}
+            onBack={handleBackFromSinglePost}
             isFavorite={favorites.includes(activePrompt.id)}
             onToggleFavorite={handleToggleFavorite}
             onCopyPrompt={(text) => handleCopyPrompt(text, activePrompt)}
@@ -529,7 +634,7 @@ export default function App() {
           setCurrentView('home');
           window.scrollTo({ top: 400, behavior: 'smooth' });
         }}
-        onOpenAdmin={() => setAdminOpen(true)}
+        onOpenAdmin={handleOpenAdmin}
         telegramLink={storeData.settings.telegramChannel}
         bingUrl={storeData.settings.bingImageCreatorUrl}
         chatgptUrl={storeData.settings.chatgptUrl}
@@ -578,10 +683,7 @@ export default function App() {
       {/* Admin Panel */}
       <AdminPanel
         isOpen={adminOpen}
-        onClose={() => {
-          setAdminOpen(false);
-          setEditPromptTarget(null);
-        }}
+        onClose={handleCloseAdmin}
         storeData={storeData}
         onUpdateStoreData={(newData) => setStoreData(newData)}
         showToast={showToast}
