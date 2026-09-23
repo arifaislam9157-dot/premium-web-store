@@ -502,8 +502,6 @@ export default function AdminPanel({
   return (
     <div
       id="admin-portal-modal"
-      onClickCapture={(e) => e.stopPropagation()}
-      onPointerDownCapture={(e) => e.stopPropagation()}
       className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 animate-fade-in"
     >
       <div className="relative w-full max-w-6xl bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
