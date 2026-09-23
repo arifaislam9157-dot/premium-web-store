@@ -107,6 +107,19 @@ export default function AdminPanel({
 
   // Backup file upload state
   const [restoreFileError, setRestoreFileError] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Manual Force Sync All
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    const success = await persistStoreData(storeData);
+    setIsSyncing(false);
+    if (success) {
+      showToast('সব প্রম্পট এবং সেটিংস সার্ভার ও ব্রাউজারে সফলভাবে সিঙ্ক ও সেভ হয়েছে!', 'success');
+    } else {
+      showToast('ব্রাউজারে সেভ হয়েছে, সার্ভারে কানেক্ট করার চেষ্টা করা হয়েছে।', 'info');
+    }
+  };
 
   // React to initialEditPrompt
   React.useEffect(() => {
@@ -489,6 +502,8 @@ export default function AdminPanel({
   return (
     <div
       id="admin-portal-modal"
+      onClickCapture={(e) => e.stopPropagation()}
+      onPointerDownCapture={(e) => e.stopPropagation()}
       className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 animate-fade-in"
     >
       <div className="relative w-full max-w-6xl bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
@@ -512,6 +527,24 @@ export default function AdminPanel({
           </div>
 
           <div className="flex items-center gap-2">
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium">
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Auto-Saved & Protected</span>
+            </div>
+
+            {isAuthenticated && (
+              <button
+                id="btn-admin-sync-now"
+                onClick={handleManualSync}
+                disabled={isSyncing}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 text-xs font-semibold transition"
+                title="Force sync all prompts and settings to server & browser"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync All'}</span>
+              </button>
+            )}
+
             {isAuthenticated && (
               <button
                 id="btn-admin-logout"

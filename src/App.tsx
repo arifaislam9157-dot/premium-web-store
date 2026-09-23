@@ -16,6 +16,7 @@ import {
   toggleFavorite as toggleFavStorage,
   logAnalytics,
 } from './lib/storage';
+import { syncMonetagAds } from './lib/adScriptLoader';
 import Header from './components/Header';
 import AnnouncementBar from './components/AnnouncementBar';
 import CategoryFilter from './components/CategoryFilter';
@@ -137,6 +138,11 @@ export default function App() {
       window.removeEventListener('hashchange', onLocationChange);
     };
   }, []);
+
+  // Sync Monetag ads: ONLY load for regular visitors, strictly NEVER inside admin panel!
+  useEffect(() => {
+    syncMonetagAds(adminOpen);
+  }, [adminOpen]);
 
   // Theme Toggle
   const handleToggleTheme = () => {
