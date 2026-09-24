@@ -26,6 +26,8 @@ import {
   Layers,
   Database,
   Sliders,
+  Clock,
+  CheckCheck,
 } from 'lucide-react';
 import {
   StoreData,
@@ -108,6 +110,33 @@ export default function AdminPanel({
   // Backup file upload state
   const [restoreFileError, setRestoreFileError] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Ad Management State & Local Drafts
+  const [adSlotDrafts, setAdSlotDrafts] = useState<Record<string, {
+    name: string;
+    placement: AdPlacement;
+    network: AdNetwork;
+    enabled: boolean;
+    code: string;
+    dimensions?: string;
+    notes?: string;
+  }>>({});
+  const [slotSavedStatus, setSlotSavedStatus] = useState<Record<string, { time: string; message: string }>>({});
+  const [savingSlotId, setSavingSlotId] = useState<string | null>(null);
+  const [isSavingAllAds, setIsSavingAllAds] = useState(false);
+  const [lastAllAdsSavedTime, setLastAllAdsSavedTime] = useState<string | null>(null);
+
+  // New Ad Slot Form State
+  const [isAddingNewSlot, setIsAddingNewSlot] = useState(false);
+  const [newSlotName, setNewSlotName] = useState('');
+  const [newSlotPlacement, setNewSlotPlacement] = useState<AdPlacement>('header_banner');
+  const [newSlotNetwork, setNewSlotNetwork] = useState<AdNetwork>('Monetag');
+  const [newSlotDimensions, setNewSlotDimensions] = useState('Responsive');
+  const [newSlotCode, setNewSlotCode] = useState('');
+  const [newSlotNotes, setNewSlotNotes] = useState('');
+  const [newSlotEnabled, setNewSlotEnabled] = useState(true);
+  const [isSavingNewSlot, setIsSavingNewSlot] = useState(false);
+  const [newSlotSaveMessage, setNewSlotSaveMessage] = useState<string | null>(null);
 
   // Manual Force Sync All
   const handleManualSync = async () => {
@@ -410,6 +439,206 @@ export default function AdminPanel({
     onUpdateStoreData(newData);
     await persistStoreData(newData);
     showToast('Category deleted', 'info');
+  };
+
+  // Ad Management Draft & Save Helpers
+  const getSlotDraft = (slot: AdSlot) => {
+    return (
+      adSlotDrafts[slot.id] || {
+        name: slot.name,
+        placement: slot.placement,
+        network: slot.network,
+        enabled: slot.enabled,
+        code: slot.code,
+        dimensions: slot.dimensions || 'Responsive',
+        notes: slot.notes || '',
+      }
+    );
+  };
+
+  const updateSlotDraft = (
+    slot: AdSlot,
+    updates: Partial<{
+      name: string;
+      placement: AdPlacement;
+      network: AdNetwork;
+      enabled: boolean;
+      code: string;
+      dimensions?: string;
+      notes?: string;
+    }>
+  ) => {
+    const current = getSlotDraft(slot);
+    setAdSlotDrafts((prev) => ({
+      ...prev,
+      [slot.id]: { ...current, ...updates },
+    }));
+  };
+
+  const isSlotDirty = (slot: AdSlot) => {
+    const draft = adSlotDrafts[slot.id];
+    if (!draft) return false;
+    return (
+      draft.code !== slot.code ||
+      draft.network !== slot.network ||
+      draft.enabled !== slot.enabled ||
+      draft.dimensions !== (slot.dimensions || 'Responsive') ||
+      draft.name !== slot.name ||
+      draft.placement !== slot.placement
+    );
+  };
+
+  // Save a specific single ad slot
+  const handleSaveSlot = async (slot: AdSlot) => {
+    setSavingSlotId(slot.id);
+    const draft = getSlotDraft(slot);
+    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    const updatedSlots = storeData.adSlots.map((s) => {
+      if (s.id === slot.id) {
+        return {
+          ...s,
+          ...draft,
+          lastUpdated: new Date().toISOString(),
+        };
+      }
+      return s;
+    });
+
+    const newData: StoreData = {
+      ...storeData,
+      adSlots: updatedSlots,
+      lastUpdated: new Date().toISOString(),
+    };
+
+    onUpdateStoreData(newData);
+    await persistStoreData(newData);
+
+    setSavingSlotId(null);
+    setSlotSavedStatus((prev) => ({
+      ...prev,
+      [slot.id]: {
+        time: nowStr,
+        message: `সফলভাবে সেভ হয়েছে! (Saved & Synced at ${nowStr})`,
+      },
+    }));
+
+    showToast(`✅ "${draft.name}" অ্যাড স্লট সফলভাবে সেভ হয়েছে!`, 'success');
+  };
+
+  // Save all ad slots at once
+  const handleSaveAllAdSlots = async () => {
+    setIsSavingAllAds(true);
+    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    const updatedSlots = storeData.adSlots.map((s) => {
+      const draft = adSlotDrafts[s.id];
+      if (draft) {
+        return {
+          ...s,
+          ...draft,
+          lastUpdated: new Date().toISOString(),
+        };
+      }
+      return s;
+    });
+
+    const newData: StoreData = {
+      ...storeData,
+      adSlots: updatedSlots,
+      lastUpdated: new Date().toISOString(),
+    };
+
+    onUpdateStoreData(newData);
+    await persistStoreData(newData);
+
+    setIsSavingAllAds(false);
+    setLastAllAdsSavedTime(nowStr);
+
+    const newStatuses: Record<string, { time: string; message: string }> = {};
+    updatedSlots.forEach((s) => {
+      newStatuses[s.id] = {
+        time: nowStr,
+        message: `সফলভাবে সেভ হয়েছে! (${nowStr})`,
+      };
+    });
+    setSlotSavedStatus(newStatuses);
+
+    showToast(`✅ সবগুলো অ্যাড স্লট সফলভাবে সেভ ও সিঙ্ক হয়েছে! (${nowStr})`, 'success');
+  };
+
+  // Add new ad slot
+  const handleAddNewAdSlot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSlotName.trim()) {
+      showToast('দয়া করে অ্যাড স্লটের নাম লিখুন', 'error');
+      return;
+    }
+    if (!newSlotCode.trim()) {
+      showToast('দয়া করে অ্যাড স্ক্রিপ্ট বা ব্যানার কোড দিন', 'error');
+      return;
+    }
+
+    setIsSavingNewSlot(true);
+    const newId = `slot-custom-${Date.now()}`;
+    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    const newSlot: AdSlot = {
+      id: newId,
+      name: newSlotName.trim(),
+      placement: newSlotPlacement,
+      network: newSlotNetwork,
+      enabled: newSlotEnabled,
+      code: newSlotCode.trim(),
+      dimensions: newSlotDimensions.trim() || 'Responsive',
+      notes: newSlotNotes.trim() || 'Custom Added Slot',
+      lastUpdated: new Date().toISOString(),
+    };
+
+    const updatedSlots = [newSlot, ...storeData.adSlots];
+    const newData: StoreData = {
+      ...storeData,
+      adSlots: updatedSlots,
+      lastUpdated: new Date().toISOString(),
+    };
+
+    onUpdateStoreData(newData);
+    await persistStoreData(newData);
+
+    setIsSavingNewSlot(false);
+    setNewSlotName('');
+    setNewSlotCode('');
+    setNewSlotNotes('');
+    setIsAddingNewSlot(false);
+
+    setSlotSavedStatus((prev) => ({
+      ...prev,
+      [newId]: {
+        time: nowStr,
+        message: `সফলভাবে তৈরি ও সেভ হয়েছে! (${nowStr})`,
+      },
+    }));
+    setNewSlotSaveMessage(`✅ "${newSlot.name}" নতুন অ্যাড স্লট সফলভাবে তৈরি ও সেভ হয়েছে! (${nowStr})`);
+
+    showToast(`✅ "${newSlot.name}" নতুন অ্যাড স্লট সফলভাবে তৈরি ও ডাটাবেজে সেভ হয়েছে!`, 'success');
+  };
+
+  // Delete an ad slot
+  const handleDeleteAdSlot = async (slotId: string, slotName: string) => {
+    if (!window.confirm(`আপনি কি নিশ্চিত যে "${slotName}" অ্যাড স্লটটি মুছে ফেলতে চান?`)) {
+      return;
+    }
+
+    const updatedSlots = storeData.adSlots.filter((s) => s.id !== slotId);
+    const newData: StoreData = {
+      ...storeData,
+      adSlots: updatedSlots,
+      lastUpdated: new Date().toISOString(),
+    };
+
+    onUpdateStoreData(newData);
+    await persistStoreData(newData);
+    showToast(`অ্যাড স্লট "${slotName}" মুছে ফেলা হয়েছে`, 'info');
   };
 
   // Update Ad Slot
@@ -1211,82 +1440,151 @@ export default function AdminPanel({
                 </div>
               )}
 
-              {/* TAB 4: ADS MANAGEMENT (Adsterra, Monetag, CPMBid, HilltopAds, Clickadu) */}
+              {/* TAB 4: ADS MANAGEMENT (Adsterra, Monetag, CPMBid, HilltopAds, Clickadu, Custom) */}
               {activeTab === 'ads' && (
                 <div className="space-y-6">
-                  <div className="p-4 rounded-xl bg-gradient-to-r from-cyan-950/40 to-blue-950/40 border border-cyan-500/30 flex items-start gap-3">
-                    <Tv className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <h4 className="text-xs font-bold text-cyan-300">
-                        Ad Networks Integrated: Adsterra, Monetag, CPMBid, HilltopAds, Clickadu
-                      </h4>
-                      <p className="text-[11px] text-slate-300 leading-relaxed">
-                        Paste your banner scripts, iframe tags, HTML widgets, or direct links into the slots below.
-                        You can toggle any slot ON or OFF in real-time. Changes apply across the entire store immediately!
-                      </p>
+                  {/* Top Header & Master Save Bar */}
+                  <div className="p-5 rounded-2xl bg-gradient-to-r from-cyan-950/50 via-slate-900 to-blue-950/50 border border-cyan-500/30 space-y-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+                          <Tv className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="font-extrabold text-sm sm:text-base text-white flex items-center gap-2">
+                            <span>Ad Networks & Monetization (বিজ্ঞাপন ও অ্যাড নিয়ন্ত্রণ)</span>
+                          </h3>
+                          <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
+                            Adsterra, Monetag, CPMBid, HilltopAds, Clickadu বা যেকোনো কাস্টম ব্যানার কোড যুক্ত ও সেভ করুন।
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Header Actions: Add New Slot & Save All Ads */}
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingNewSlot(!isAddingNewSlot)}
+                          className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
+                            isAddingNewSlot
+                              ? 'bg-slate-800 text-slate-300 border border-slate-700'
+                              : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                          }`}
+                        >
+                          {isAddingNewSlot ? (
+                            <>
+                              <X className="w-3.5 h-3.5" />
+                              <span>Cancel (বাতিল)</span>
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>➕ Add New Ad Slot (নতুন অ্যাড যোগ করুন)</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          id="btn-save-all-ads"
+                          onClick={handleSaveAllAdSlots}
+                          disabled={isSavingAllAds}
+                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/25 transition disabled:opacity-50"
+                        >
+                          {isSavingAllAds ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <span>Saving All Ads... (সেভ হচ্ছে...)</span>
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-3.5 h-3.5" />
+                              <span>💾 Save All Ads (সবগুলো অ্যাড সেভ করুন)</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Stats & Last Saved Info */}
+                    <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 font-mono text-[11px]">
+                          Total Slots: <strong className="text-white">{storeData.adSlots.length}</strong>
+                        </span>
+                        <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-[11px] flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                          Active: {storeData.adSlots.filter((s) => s.enabled).length}
+                        </span>
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 font-mono text-[11px]">
+                          Disabled: {storeData.adSlots.filter((s) => !s.enabled).length}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+                        <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Last Saved: </span>
+                        <span className="font-mono text-cyan-300 font-semibold">
+                          {lastAllAdsSavedTime || storeData.lastUpdated?.slice(11, 19) || 'Just now'}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-5">
-                    {storeData.adSlots.map((slot) => (
-                      <div
-                        key={slot.id}
-                        className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4"
-                      >
-                        {/* Slot Header */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-bold text-sm text-white">{slot.name}</h4>
-                              <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
-                                {slot.dimensions || 'Responsive'}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-slate-400 mt-0.5">{slot.notes}</p>
+                  {/* FORM: ADD NEW AD SLOT (নতুন অ্যাড স্লট যোগ করার ফর্ম) */}
+                  {isAddingNewSlot && (
+                    <div className="p-5 rounded-2xl bg-slate-950 border-2 border-emerald-500/40 space-y-4 shadow-xl animate-fade-in">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                            <Plus className="w-4 h-4" />
                           </div>
-
-                          {/* Toggle Switch */}
-                          <div className="flex items-center gap-3">
-                            <span className="text-xs font-semibold text-slate-300">
-                              {slot.enabled ? (
-                                <span className="text-emerald-400 flex items-center gap-1">
-                                  <Check className="w-3.5 h-3.5" /> Active
-                                </span>
-                              ) : (
-                                <span className="text-slate-500">Disabled</span>
-                              )}
-                            </span>
-                            <button
-                              id={`toggle-ad-${slot.id}`}
-                              onClick={() => handleUpdateAdSlot(slot.id, { enabled: !slot.enabled })}
-                              className={`w-12 h-6 rounded-full transition-colors p-1 ${
-                                slot.enabled ? 'bg-cyan-500' : 'bg-slate-800'
-                              }`}
-                            >
-                              <div
-                                className={`w-4 h-4 rounded-full bg-slate-950 transition-transform ${
-                                  slot.enabled ? 'translate-x-6' : 'translate-x-0'
-                                }`}
-                              />
-                            </button>
+                          <div>
+                            <h4 className="font-bold text-sm text-white">
+                              Add New Ad Slot & Script (নতুন অ্যাড স্লট যোগ করুন)
+                            </h4>
+                            <p className="text-[11px] text-slate-400">
+                              এখানে আপনার নতুন কোনো অ্যাড কোড, পপআন্ডার বা ব্যানার কোড যুক্ত করে সেভ করুন।
+                            </p>
                           </div>
                         </div>
 
-                        {/* Network Selector & Ad Code Area */}
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-3">
-                            <label className="text-xs font-semibold text-slate-300">
-                              Target Ad Network:
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingNewSlot(false)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-white bg-slate-900"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleAddNewAdSlot} className="space-y-4 text-xs">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                          {/* Slot Name */}
+                          <div className="space-y-1">
+                            <label className="font-semibold text-slate-300">
+                              Ad Slot Name (অ্যাড স্লটের নাম) <span className="text-rose-400">*</span>
                             </label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. Monetag Native Banner or Popunder"
+                              value={newSlotName}
+                              onChange={(e) => setNewSlotName(e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                            />
+                          </div>
+
+                          {/* Target Network */}
+                          <div className="space-y-1">
+                            <label className="font-semibold text-slate-300">Ad Network</label>
                             <select
-                              value={slot.network}
-                              onChange={(e) =>
-                                handleUpdateAdSlot(slot.id, { network: e.target.value as AdNetwork })
-                              }
-                              className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+                              value={newSlotNetwork}
+                              onChange={(e) => setNewSlotNetwork(e.target.value as AdNetwork)}
+                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
                             >
-                              <option value="Adsterra">Adsterra</option>
                               <option value="Monetag">Monetag</option>
+                              <option value="Adsterra">Adsterra</option>
                               <option value="CPMBid">CPMBid</option>
                               <option value="HilltopAds">HilltopAds</option>
                               <option value="Clickadu">Clickadu</option>
@@ -1294,39 +1592,429 @@ export default function AdminPanel({
                             </select>
                           </div>
 
+                          {/* Placement */}
                           <div className="space-y-1">
-                            <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
-                              <span>Ad Script / HTML / Banner Code:</span>
-                              <span className="text-[10px] text-slate-500 font-mono">
-                                Supports &lt;script&gt;, &lt;iframe&gt;, &lt;a&gt;&lt;img&gt; or Direct Link URL
-                              </span>
-                            </label>
-                            <textarea
-                              rows={4}
-                              value={slot.code}
-                              onChange={(e) =>
-                                handleUpdateAdSlot(slot.id, { code: e.target.value })
-                              }
-                              placeholder="Paste your ad script or HTML banner here..."
-                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 font-mono text-xs text-white focus:outline-none focus:border-cyan-500"
+                            <label className="font-semibold text-slate-300">Placement Position</label>
+                            <select
+                              value={newSlotPlacement}
+                              onChange={(e) => setNewSlotPlacement(e.target.value as AdPlacement)}
+                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                            >
+                              <option value="header_banner">Header Banner (উপরে)</option>
+                              <option value="in_feed_native">In-Feed Native Grid (কার্ডের মাঝে)</option>
+                              <option value="under_prompt_modal">Under Code Snippet (সিঙ্গেল পেজে)</option>
+                              <option value="sticky_footer">Sticky Floating Bottom (নিচে ভাসমান)</option>
+                              <option value="direct_link_popunder">Direct Link / Popunder</option>
+                              <option value="sidebar_banner">Sidebar Banner</option>
+                            </select>
+                          </div>
+
+                          {/* Dimensions */}
+                          <div className="space-y-1">
+                            <label className="font-semibold text-slate-300">Dimensions / Size</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Responsive, 728x90, 300x250"
+                              value={newSlotDimensions}
+                              onChange={(e) => setNewSlotDimensions(e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
                             />
                           </div>
 
+                          {/* Notes */}
+                          <div className="space-y-1">
+                            <label className="font-semibold text-slate-300">Admin Notes (অপশনাল)</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Monetag zone id 284836"
+                              value={newSlotNotes}
+                              onChange={(e) => setNewSlotNotes(e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                            />
+                          </div>
+
+                          {/* Initial Status */}
+                          <div className="space-y-1 flex flex-col justify-end">
+                            <label className="font-semibold text-slate-300 mb-1">Status</label>
+                            <button
+                              type="button"
+                              onClick={() => setNewSlotEnabled(!newSlotEnabled)}
+                              className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between border transition ${
+                                newSlotEnabled
+                                  ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
+                                  : 'bg-slate-900 border-slate-700 text-slate-400'
+                              }`}
+                            >
+                              <span>{newSlotEnabled ? 'Active (চালু থাকবে)' : 'Disabled (বন্ধ থাকবে)'}</span>
+                              <div
+                                className={`w-3.5 h-3.5 rounded-full ${
+                                  newSlotEnabled ? 'bg-emerald-400' : 'bg-slate-600'
+                                }`}
+                              />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Code Textarea */}
+                        <div className="space-y-1">
+                          <label className="font-semibold text-slate-300 flex items-center justify-between">
+                            <span>
+                              Ad Script / HTML / Banner Code (কোড বা স্ক্রিপ্ট পেস্ট করুন): <span className="text-rose-400">*</span>
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              &lt;script&gt;, &lt;iframe&gt;, &lt;a&gt;&lt;img&gt; or Direct Link URL
+                            </span>
+                          </label>
+                          <textarea
+                            rows={4}
+                            required
+                            value={newSlotCode}
+                            onChange={(e) => setNewSlotCode(e.target.value)}
+                            placeholder="<!-- Paste your Monetag / Adsterra script here -->&#10;<script>...</script>"
+                            className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 font-mono text-xs text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+
+                        {/* Submit Button */}
+                        <div className="flex items-center justify-end gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsAddingNewSlot(false)}
+                            className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={isSavingNewSlot}
+                            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold flex items-center gap-2 shadow-lg shadow-emerald-500/25 transition disabled:opacity-50"
+                          >
+                            {isSavingNewSlot ? (
+                              <>
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                <span>Saving... (সেভ হচ্ছে...)</span>
+                              </>
+                            ) : (
+                              <>
+                                <Save className="w-4 h-4" />
+                                <span>💾 Save & Add Ad Slot (অ্যাড স্লট সেভ ও যোগ করুন)</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
+
+                  {/* Confirmation Banner for Newly Added Slot */}
+                  {newSlotSaveMessage && (
+                    <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span className="font-bold">{newSlotSaveMessage}</span>
+                      </div>
+                      <button
+                        onClick={() => setNewSlotSaveMessage(null)}
+                        className="text-emerald-400 hover:text-white"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* LIST OF AD SLOTS */}
+                  <div className="space-y-5">
+                    {storeData.adSlots.map((slot) => {
+                      const draft = getSlotDraft(slot);
+                      const dirty = isSlotDirty(slot);
+                      const savedInfo = slotSavedStatus[slot.id];
+                      const isCurrentlySaving = savingSlotId === slot.id;
+
+                      return (
+                        <div
+                          key={slot.id}
+                          className={`p-5 rounded-2xl bg-slate-950 border transition-all space-y-4 ${
+                            dirty
+                              ? 'border-amber-500/60 shadow-lg shadow-amber-500/5'
+                              : savedInfo
+                              ? 'border-emerald-500/50'
+                              : 'border-slate-800'
+                          }`}
+                        >
+                          {/* Slot Header */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="font-bold text-sm text-white">{draft.name}</h4>
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
+                                  {draft.dimensions || 'Responsive'}
+                                </span>
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 font-mono border border-cyan-500/20">
+                                  {draft.placement}
+                                </span>
+
+                                {/* Dirty / Saved State Badges */}
+                                {dirty ? (
+                                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold flex items-center gap-1 animate-pulse">
+                                    <AlertCircle className="w-3 h-3" />
+                                    <span>⚠️ Unsaved Changes (সেভ করুন)</span>
+                                  </span>
+                                ) : savedInfo ? (
+                                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold flex items-center gap-1">
+                                    <CheckCheck className="w-3 h-3 text-emerald-400" />
+                                    <span>Saved ({savedInfo.time})</span>
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full bg-slate-900 text-slate-400 text-[10px] font-mono border border-slate-800 flex items-center gap-1">
+                                    <Check className="w-3 h-3 text-slate-400" />
+                                    <span>Database Synced</span>
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-400">{draft.notes || slot.notes}</p>
+                            </div>
+
+                            {/* Active/Disabled Toggle Switch */}
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs font-semibold text-slate-300">
+                                {draft.enabled ? (
+                                  <span className="text-emerald-400 flex items-center gap-1">
+                                    <Check className="w-3.5 h-3.5" /> Active (চালু)
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-500">Disabled (বন্ধ)</span>
+                                )}
+                              </span>
+                              <button
+                                type="button"
+                                id={`toggle-ad-${slot.id}`}
+                                onClick={() => updateSlotDraft(slot, { enabled: !draft.enabled })}
+                                className={`w-12 h-6 rounded-full transition-colors p-1 ${
+                                  draft.enabled ? 'bg-cyan-500' : 'bg-slate-800'
+                                }`}
+                                title="Click to toggle Active/Disabled"
+                              >
+                                <div
+                                  className={`w-4 h-4 rounded-full bg-slate-950 transition-transform ${
+                                    draft.enabled ? 'translate-x-6' : 'translate-x-0'
+                                  }`}
+                                />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Saved Status Notification Box (inside the card) */}
+                          {savedInfo && (
+                            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between animate-fade-in">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                                <span className="font-semibold">
+                                  {savedInfo.message || `অ্যাড স্লট "${draft.name}" সফলভাবে সেভ হয়েছে!`}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-mono text-emerald-400/80">
+                                {savedInfo.time}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Unsaved Prompt Warning */}
+                          {dirty && !savedInfo && (
+                            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+                              <span>
+                                আপনি এই স্লটে পরিবর্তন করেছেন। পরিবর্তন নিশ্চিত করতে নিচের <strong>"💾 Save Ad Slot"</strong> বাটনে ক্লিক করুন।
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Network Selector & Settings */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-xs font-semibold text-slate-300">
+                                Target Ad Network:
+                              </label>
+                              <select
+                                value={draft.network}
+                                onChange={(e) =>
+                                  updateSlotDraft(slot, { network: e.target.value as AdNetwork })
+                                }
+                                className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+                              >
+                                <option value="Monetag">Monetag</option>
+                                <option value="Adsterra">Adsterra</option>
+                                <option value="CPMBid">CPMBid</option>
+                                <option value="HilltopAds">HilltopAds</option>
+                                <option value="Clickadu">Clickadu</option>
+                                <option value="Custom">Custom HTML / Script</option>
+                              </select>
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-xs font-semibold text-slate-300">
+                                Slot Display Name:
+                              </label>
+                              <input
+                                type="text"
+                                value={draft.name}
+                                onChange={(e) => updateSlotDraft(slot, { name: e.target.value })}
+                                className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-xs font-semibold text-slate-300">
+                                Dimensions / Size:
+                              </label>
+                              <input
+                                type="text"
+                                value={draft.dimensions || ''}
+                                placeholder="Responsive or 728x90"
+                                onChange={(e) =>
+                                  updateSlotDraft(slot, { dimensions: e.target.value })
+                                }
+                                className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Ad Script Code Area */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <label className="font-semibold text-slate-300 flex items-center gap-1.5">
+                                <Code className="w-3.5 h-3.5 text-cyan-400" />
+                                <span>Ad Script / HTML / Banner Code:</span>
+                              </label>
+                              {draft.code && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateSlotDraft(slot, { code: '' })}
+                                  className="text-[10px] text-rose-400 hover:text-rose-300 hover:underline"
+                                >
+                                  ক্লিয়ার কোড (Clear)
+                                </button>
+                              )}
+                            </div>
+                            <textarea
+                              rows={5}
+                              value={draft.code}
+                              onChange={(e) => updateSlotDraft(slot, { code: e.target.value })}
+                              placeholder="Paste your ad script, iframe, banner code, or direct link URL here..."
+                              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 font-mono text-xs text-white focus:outline-none focus:border-cyan-500 leading-relaxed"
+                            />
+                            <p className="text-[10px] text-slate-500 font-mono">
+                              Monetag, Adsterra, বা CPMBid কোড পেস্ট করার পর নিচে সেভ বাটনে ক্লিক করবেন।
+                            </p>
+                          </div>
+
                           {/* Quick Live Preview Box for Admin */}
-                          {slot.code && (
+                          {draft.code && (
                             <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-1.5">
                               <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">
                                 Live Slot Preview:
                               </span>
                               <div
-                                dangerouslySetInnerHTML={{ __html: slot.code }}
+                                dangerouslySetInnerHTML={{ __html: draft.code }}
                                 className="overflow-x-auto flex justify-center py-2"
                               />
                             </div>
                           )}
+
+                          {/* ACTION BUTTONS: SAVE BUTTON, REVERT, DELETE */}
+                          <div className="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                              {slot.id.startsWith('slot-custom-') && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAdSlot(slot.id, draft.name)}
+                                  className="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs border border-rose-500/30 flex items-center gap-1.5 transition"
+                                  title="Delete this custom slot"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Delete Slot</span>
+                                </button>
+                              )}
+
+                              {dirty && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAdSlotDrafts((prev) => {
+                                      const next = { ...prev };
+                                      delete next[slot.id];
+                                      return next;
+                                    });
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition"
+                                >
+                                  Revert (পূর্বাবস্থায় ফিরুন)
+                                </button>
+                              )}
+                            </div>
+
+                            {/* PROMINENT SAVE BUTTON FOR THIS AD SLOT */}
+                            <button
+                              type="button"
+                              id={`btn-save-slot-${slot.id}`}
+                              onClick={() => handleSaveSlot(slot)}
+                              disabled={isCurrentlySaving}
+                              className={`w-full sm:w-auto px-6 py-2.5 rounded-xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition disabled:opacity-50 ${
+                                savedInfo && !dirty
+                                  ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
+                                  : 'bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 shadow-cyan-500/25'
+                              }`}
+                            >
+                              {isCurrentlySaving ? (
+                                <>
+                                  <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                                  <span>Saving Slot... (সেভ হচ্ছে...)</span>
+                                </>
+                              ) : savedInfo && !dirty ? (
+                                <>
+                                  <CheckCheck className="w-4 h-4 text-slate-950" />
+                                  <span>✅ Saved Successfully! (সেভ হয়েছে)</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Save className="w-4 h-4 text-slate-950" />
+                                  <span>💾 Save Ad Slot (এই স্লটটি সেভ করুন)</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
+                  </div>
+
+                  {/* BOTTOM MASTER SAVE ALL ADS BAR */}
+                  <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="space-y-0.5 text-center sm:text-left">
+                      <p className="font-bold text-xs text-white">সবগুলো অ্যাড স্লটের পরিবর্তন একসাথে সেভ করতে চান?</p>
+                      <p className="text-[11px] text-slate-400">
+                        ক্লিক করলে সমস্ত অ্যাড স্লট সার্ভার ডিস্ক এবং ব্রাউজার মেমোরিতে সরাসরি সেভ হবে।
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      id="btn-bottom-save-all-ads"
+                      onClick={handleSaveAllAdSlots}
+                      disabled={isSavingAllAds}
+                      className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25 transition disabled:opacity-50"
+                    >
+                      {isSavingAllAds ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Saving All...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          <span>💾 Save All Ad Settings (সবগুলো অ্যাড সেভ করুন)</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               )}
