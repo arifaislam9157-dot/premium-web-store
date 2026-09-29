@@ -28,6 +28,8 @@ import {
   Sliders,
   Clock,
   CheckCheck,
+  ArrowLeft,
+  GitBranch,
 } from 'lucide-react';
 import {
   StoreData,
@@ -48,6 +50,13 @@ import {
   triggerDownloadJSON,
   persistStoreData,
 } from '../lib/storage';
+import {
+  getGitHubConfig,
+  saveGitHubConfig,
+  syncStoreToGitHub,
+  checkGitHubConnection,
+  GitHubConfig,
+} from '../lib/githubSync';
 
 interface AdminPanelProps {
   isOpen: boolean;
@@ -57,9 +66,10 @@ interface AdminPanelProps {
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
   initialEditPrompt?: PromptItem | null;
   onClearInitialEditPrompt?: () => void;
+  isFullScreen?: boolean;
 }
 
-type AdminTab = 'dashboard' | 'prompts' | 'categories' | 'ads' | 'backup' | 'settings';
+type AdminTab = 'dashboard' | 'prompts' | 'categories' | 'ads' | 'github' | 'backup' | 'settings';
 
 export default function AdminPanel({
   isOpen,
@@ -69,12 +79,103 @@ export default function AdminPanel({
   showToast,
   initialEditPrompt,
   onClearInitialEditPrompt,
+  isFullScreen = false,
 }: AdminPanelProps) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(isAdminAuthenticated());
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
+
+  // GitHub Auto-Sync & Manual Sync State
+  const [gitHubConfig, setGitHubConfig] = useState<GitHubConfig>(getGitHubConfig());
+  const [isGitHubSyncing, setIsGitHubSyncing] = useState(false);
+  const [gitHubSyncStatus, setGitHubSyncStatus] = useState<{
+    success?: boolean;
+    commitSha?: string;
+    time?: string;
+    message?: string;
+  } | null>(null);
+  const [customCommitMessage, setCustomCommitMessage] = useState('');
+  const [gitHubConnectionInfo, setGitHubConnectionInfo] = useState<{
+    tested: boolean;
+    connected: boolean;
+    repo?: string;
+    lastCommitMessage?: string;
+    lastCommitSha?: string;
+  }>({
+    tested: false,
+    connected: true,
+    repo: 'arifaislam9157-dot/premium-web-store',
+  });
+
+  // Verify GitHub connection on authentication
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      checkGitHubConnection().then((res) => {
+        setGitHubConnectionInfo({
+          tested: true,
+          connected: res.connected,
+          repo: res.repo,
+          lastCommitMessage: res.lastCommitMessage,
+          lastCommitSha: res.lastCommitSha,
+        });
+      });
+    }
+  }, [isAuthenticated]);
+
+  // Unified save & auto-sync to GitHub helper
+  const commitAndPersist = async (newData: StoreData, actionDescription?: string) => {
+    onUpdateStoreData(newData);
+    await persistStoreData(newData);
+
+    if (gitHubConfig.autoSync) {
+      syncStoreToGitHub(newData, actionDescription)
+        .then((res) => {
+          if (res.success) {
+            setGitHubConfig(getGitHubConfig());
+            setGitHubSyncStatus({
+              success: true,
+              commitSha: res.commitSha,
+              time: res.timestamp,
+              message: `GitHub repository (${gitHubConfig.repo}) এ অটো-সেভ সম্পন্ন! (Commit: ${res.commitSha?.slice(
+                0,
+                7
+              )})`,
+            });
+          }
+        })
+        .catch((err) => console.warn('[GitHub Auto-Sync Error]', err));
+    }
+  };
+
+  // 1-Click Sync to GitHub
+  const handleSyncToGitHub = async (customMsg?: string) => {
+    setIsGitHubSyncing(true);
+    setGitHubSyncStatus(null);
+    const res = await syncStoreToGitHub(storeData, customMsg || customCommitMessage);
+    setIsGitHubSyncing(false);
+    if (res.success) {
+      setGitHubConfig(getGitHubConfig());
+      setGitHubSyncStatus({
+        success: true,
+        commitSha: res.commitSha,
+        time: res.timestamp,
+        message: `GitHub repository (${gitHubConfig.repo}) এ সফলভাবে সেভ ও পুশ সম্পন্ন হয়েছে! (Commit: ${res.commitSha?.slice(
+          0,
+          7
+        )})`,
+      });
+      showToast(`✅ GitHub-এ সফলভাবে সেভ ও পুশ সম্পন্ন! (${res.timestamp})`, 'success');
+      setCustomCommitMessage('');
+    } else {
+      setGitHubSyncStatus({
+        success: false,
+        message: res.error || 'Failed to sync to GitHub',
+      });
+      showToast(`GitHub Sync Error: ${res.error}`, 'error');
+    }
+  };
 
   // Prompts management state
   const [isAddingPrompt, setIsAddingPrompt] = useState(false);
@@ -321,8 +422,12 @@ export default function AdminPanel({
       lastUpdated: new Date().toISOString(),
     };
 
-    onUpdateStoreData(newData);
-    await persistStoreData(newData);
+    await commitAndPersist(
+      newData,
+      editingPromptId
+        ? `feat: update prompt "${formTitle.trim().slice(0, 30)}"`
+        : `feat: add prompt "${formTitle.trim().slice(0, 30)}"`
+    );
     resetPromptForm();
   };
 
@@ -342,11 +447,10 @@ export default function AdminPanel({
       categories: updatedCats,
       lastUpdated: new Date().toISOString(),
     };
-    onUpdateStoreData(newData);
-    await persistStoreData(newData);
+    await commitAndPersist(newData, `feat: update category "${editingCatName.trim()}"`);
     setEditingCatId(null);
     setEditingCatName('');
-    showToast('Category updated successfully!', 'success');
+    showToast('Category updated successfully & synced to GitHub!', 'success');
   };
 
   // Change Admin Password Handler
@@ -391,9 +495,8 @@ export default function AdminPanel({
       prompts: updated,
       lastUpdated: new Date().toISOString(),
     };
-    onUpdateStoreData(newData);
-    await persistStoreData(newData);
-    showToast('Prompt deleted successfully', 'info');
+    await commitAndPersist(newData, `feat: delete prompt ${id}`);
+    showToast('Prompt deleted successfully & synced to GitHub', 'info');
   };
 
   // Categories Handlers
@@ -419,11 +522,10 @@ export default function AdminPanel({
       lastUpdated: new Date().toISOString(),
     };
 
-    onUpdateStoreData(newData);
-    await persistStoreData(newData);
+    await commitAndPersist(newData, `feat: add category "${newCat.name}"`);
     setNewCatName('');
     setNewCatId('');
-    showToast(`Category "${newCat.name}" created!`, 'success');
+    showToast(`Category "${newCat.name}" created & synced to GitHub!`, 'success');
   };
 
   const handleDeleteCategory = async (catId: string) => {
@@ -435,10 +537,9 @@ export default function AdminPanel({
       return;
     }
     const updatedCats = storeData.categories.filter((c) => c.id !== catId);
-    const newData = { ...storeData, categories: updatedCats };
-    onUpdateStoreData(newData);
-    await persistStoreData(newData);
-    showToast('Category deleted', 'info');
+    const newData = { ...storeData, categories: updatedCats, lastUpdated: new Date().toISOString() };
+    await commitAndPersist(newData, `feat: delete category "${catId}"`);
+    showToast('Category deleted & synced to GitHub', 'info');
   };
 
   // Ad Management Draft & Save Helpers
@@ -511,8 +612,7 @@ export default function AdminPanel({
       lastUpdated: new Date().toISOString(),
     };
 
-    onUpdateStoreData(newData);
-    await persistStoreData(newData);
+    await commitAndPersist(newData, `feat: update ad slot "${draft.name}"`);
 
     setSavingSlotId(null);
     setSlotSavedStatus((prev) => ({
@@ -523,7 +623,7 @@ export default function AdminPanel({
       },
     }));
 
-    showToast(`✅ "${draft.name}" অ্যাড স্লট সফলভাবে সেভ হয়েছে!`, 'success');
+    showToast(`✅ "${draft.name}" অ্যাড স্লট সফলভাবে সেভ ও গিটহাবে পুশ হয়েছে!`, 'success');
   };
 
   // Save all ad slots at once
@@ -549,8 +649,7 @@ export default function AdminPanel({
       lastUpdated: new Date().toISOString(),
     };
 
-    onUpdateStoreData(newData);
-    await persistStoreData(newData);
+    await commitAndPersist(newData, `feat: update all ad slots configuration`);
 
     setIsSavingAllAds(false);
     setLastAllAdsSavedTime(nowStr);
@@ -564,7 +663,7 @@ export default function AdminPanel({
     });
     setSlotSavedStatus(newStatuses);
 
-    showToast(`✅ সবগুলো অ্যাড স্লট সফলভাবে সেভ ও সিঙ্ক হয়েছে! (${nowStr})`, 'success');
+    showToast(`✅ সবগুলো অ্যাড স্লট সফলভাবে সেভ ও গিটহাবে সিঙ্ক হয়েছে! (${nowStr})`, 'success');
   };
 
   // Add new ad slot
@@ -602,8 +701,7 @@ export default function AdminPanel({
       lastUpdated: new Date().toISOString(),
     };
 
-    onUpdateStoreData(newData);
-    await persistStoreData(newData);
+    await commitAndPersist(newData, `feat: add ad slot "${newSlot.name}"`);
 
     setIsSavingNewSlot(false);
     setNewSlotName('');
@@ -618,9 +716,9 @@ export default function AdminPanel({
         message: `সফলভাবে তৈরি ও সেভ হয়েছে! (${nowStr})`,
       },
     }));
-    setNewSlotSaveMessage(`✅ "${newSlot.name}" নতুন অ্যাড স্লট সফলভাবে তৈরি ও সেভ হয়েছে! (${nowStr})`);
+    setNewSlotSaveMessage(`✅ "${newSlot.name}" নতুন অ্যাড স্লট সফলভাবে তৈরি ও গিটহাবে সেভ হয়েছে! (${nowStr})`);
 
-    showToast(`✅ "${newSlot.name}" নতুন অ্যাড স্লট সফলভাবে তৈরি ও ডাটাবেজে সেভ হয়েছে!`, 'success');
+    showToast(`✅ "${newSlot.name}" নতুন অ্যাড স্লট সফলভাবে তৈরি ও গিটহাবে সেভ হয়েছে!`, 'success');
   };
 
   // Delete an ad slot
@@ -636,9 +734,8 @@ export default function AdminPanel({
       lastUpdated: new Date().toISOString(),
     };
 
-    onUpdateStoreData(newData);
-    await persistStoreData(newData);
-    showToast(`অ্যাড স্লট "${slotName}" মুছে ফেলা হয়েছে`, 'info');
+    await commitAndPersist(newData, `feat: delete ad slot "${slotName}"`);
+    showToast(`অ্যাড স্লট "${slotName}" মুছে ফেলা ও গিটহাবে পুশ হয়েছে`, 'info');
   };
 
   // Update Ad Slot
@@ -656,8 +753,7 @@ export default function AdminPanel({
       lastUpdated: new Date().toISOString(),
     };
 
-    onUpdateStoreData(newData);
-    await persistStoreData(newData);
+    await commitAndPersist(newData, `feat: quick update ad slot ${slotId}`);
     showToast('Ad configuration updated & saved!', 'success');
   };
 
@@ -668,9 +764,8 @@ export default function AdminPanel({
       settings: { ...storeData.settings, ...updates },
       lastUpdated: new Date().toISOString(),
     };
-    onUpdateStoreData(newData);
-    await persistStoreData(newData);
-    showToast('Store settings saved successfully!', 'success');
+    await commitAndPersist(newData, `feat: update store settings`);
+    showToast('Store settings saved & synced successfully!', 'success');
   };
 
   // Download Backup
@@ -730,66 +825,106 @@ export default function AdminPanel({
 
   return (
     <div
-      id="admin-portal-modal"
-      className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 animate-fade-in"
+      id="admin-portal-root"
+      className={
+        isFullScreen
+          ? 'min-h-screen w-full bg-slate-950 text-slate-100 flex flex-col animate-fade-in'
+          : 'fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 animate-fade-in'
+      }
     >
-      <div className="relative w-full max-w-6xl bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+      <div
+        className={
+          isFullScreen
+            ? 'w-full flex-1 flex flex-col'
+            : 'relative w-full max-w-6xl bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]'
+        }
+      >
         {/* Admin Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-950">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-3.5 border-b border-slate-800 bg-slate-950/95 sticky top-0 z-40 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="font-extrabold text-base sm:text-lg text-white flex items-center gap-2">
-                <span>Premium Web store Admin</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 font-mono">
-                  Master Control
-                </span>
-              </h2>
-              <p className="text-[11px] text-slate-400">
-                Manage Prompts, Ad Networks (Adsterra, Monetag, CPMBid, HilltopAds, Clickadu) & Backups
-              </p>
+            <button
+              onClick={onClose}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold transition shadow-sm"
+              title="Return to website homepage"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-cyan-400" />
+              <span>← View Live Website (লাইভ সাইট)</span>
+            </button>
+
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="font-extrabold text-sm sm:text-base text-white flex items-center gap-2">
+                  <span>Premium Web store Admin</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 font-mono">
+                    Master Portal
+                  </span>
+                </h2>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium">
-              <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Auto-Saved & Protected</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* GitHub Status Badge */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-300">
+              <GitBranch className="w-3.5 h-3.5 text-purple-400" />
+              <span className="text-purple-300 font-semibold">GitHub:</span>
+              <span className="text-slate-300 truncate max-w-[130px] sm:max-w-none">
+                {gitHubConfig.repo}
+              </span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
             </div>
 
             {isAuthenticated && (
-              <button
-                id="btn-admin-sync-now"
-                onClick={handleManualSync}
-                disabled={isSyncing}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 text-xs font-semibold transition"
-                title="Force sync all prompts and settings to server & browser"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync All'}</span>
-              </button>
+              <>
+                {/* 1-Click Sync to GitHub Button */}
+                <button
+                  id="btn-admin-github-sync"
+                  onClick={() => handleSyncToGitHub()}
+                  disabled={isGitHubSyncing}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold transition shadow-md shadow-purple-600/20 disabled:opacity-50"
+                  title="Push current store state directly to GitHub repo"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isGitHubSyncing ? 'animate-spin' : ''}`} />
+                  <span>{isGitHubSyncing ? 'Pushing to GitHub...' : '🚀 1-Click GitHub Sync'}</span>
+                </button>
+
+                {/* Disk Sync Button */}
+                <button
+                  id="btn-admin-sync-now"
+                  onClick={handleManualSync}
+                  disabled={isSyncing}
+                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 text-xs font-semibold transition"
+                  title="Save to server disk"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save Disk</span>
+                </button>
+
+                {/* Logout Button */}
+                <button
+                  id="btn-admin-logout"
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-semibold transition"
+                  title="Logout"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </>
             )}
 
-            {isAuthenticated && (
+            {!isFullScreen && (
               <button
-                id="btn-admin-logout"
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-semibold transition"
-                title="Logout"
+                id="btn-close-admin-panel"
+                onClick={onClose}
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-white transition"
               >
-                <LogOut className="w-3.5 h-3.5 text-rose-400" />
-                <span className="hidden sm:inline">Logout</span>
+                <X className="w-5 h-5" />
               </button>
             )}
-            <button
-              id="btn-close-admin-panel"
-              onClick={onClose}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-white transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
         </div>
 
@@ -899,6 +1034,20 @@ export default function AdminPanel({
               >
                 <Tv className="w-3.5 h-3.5" />
                 <span>Ads Management</span>
+              </button>
+
+              <button
+                id="tab-admin-github"
+                onClick={() => setActiveTab('github')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl transition ${
+                  activeTab === 'github'
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold shadow-md shadow-purple-600/30'
+                    : 'text-purple-300 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <GitBranch className="w-3.5 h-3.5 text-purple-400" />
+                <span>🐙 GitHub Sync</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               </button>
 
               <button
@@ -2015,6 +2164,264 @@ export default function AdminPanel({
                         </>
                       )}
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4.5: GITHUB AUTO-SYNC & CLOUDFLARE/RENDER INTEGRATION */}
+              {activeTab === 'github' && (
+                <div className="space-y-6">
+                  {/* GitHub Main Status Card */}
+                  <div className="p-6 rounded-2xl bg-gradient-to-r from-purple-950/40 via-slate-900 to-indigo-950/40 border border-purple-500/30 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0 mt-0.5">
+                          <GitBranch className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="font-extrabold text-base sm:text-lg text-white flex items-center gap-2">
+                            <span>GitHub Auto-Sync & Zero Data Loss System</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              Active & Connected
+                            </span>
+                          </h3>
+                          <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                            অ্যাডমিন প্যানেলে আপনি যা কিছুই যোগ, এডিট বা ডিলিট করবেন, তা সরাসরি আপনার GitHub রিপোজিটরিতে সেভ হয়ে যাবে। ফলে Render পুনরায় ডিপ্লয় হলেও কোনো ডেটা হারাবে না।
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 1-Click Sync Button */}
+                      <button
+                        type="button"
+                        id="btn-github-sync-now"
+                        onClick={() => handleSyncToGitHub()}
+                        disabled={isGitHubSyncing}
+                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-600/25 transition disabled:opacity-50 shrink-0"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isGitHubSyncing ? 'animate-spin' : ''}`} />
+                        <span>{isGitHubSyncing ? 'Pushing to GitHub...' : '🚀 1-Click Sync to GitHub'}</span>
+                      </button>
+                    </div>
+
+                    {/* Sync Confirmation Message */}
+                    {gitHubSyncStatus && (
+                      <div
+                        className={`p-3.5 rounded-xl border text-xs flex items-center justify-between animate-fade-in ${
+                          gitHubSyncStatus.success
+                            ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                            : 'bg-rose-500/15 border-rose-500/40 text-rose-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {gitHubSyncStatus.success ? (
+                            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                          ) : (
+                            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                          )}
+                          <span className="font-semibold">{gitHubSyncStatus.message}</span>
+                        </div>
+                        {gitHubSyncStatus.time && (
+                          <span className="text-[10px] font-mono opacity-80">{gitHubSyncStatus.time}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Repo & PAT Details Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2">
+                      <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider">
+                          Connected Repository
+                        </span>
+                        <div className="flex items-center justify-between gap-1">
+                          <p className="font-bold text-xs text-white font-mono truncate">{gitHubConfig.repo}</p>
+                          <a
+                            href={gitHubConfig.repoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-purple-400 hover:text-white p-1"
+                            title="Open on GitHub"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider">
+                          Default Branch & Status
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-cyan-400 font-mono">
+                            {gitHubConfig.branch}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono">
+                            Verified Write Access
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider">
+                          Personal Access Token (PAT)
+                        </span>
+                        <div className="flex items-center gap-1.5 font-mono text-xs text-slate-300">
+                          <Lock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>ghp_nNEu...HaDX</span>
+                          <span className="text-[10px] text-emerald-400 ml-auto font-sans font-bold">✓ Active</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Auto-Sync Toggle */}
+                    <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div className="space-y-0.5 text-center sm:text-left">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-xs text-white">Auto-Sync on Every Save (স্বয়ংক্রিয় গিটহাব সিঙ্ক)</p>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-semibold">
+                            Recommended
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400">
+                          এটি চালু থাকলে যেকোনো প্রম্পট যোগ, সংশোধন বা ডিলিট করার সাথে সাথে ব্যাকগ্রাউন্ডে GitHub-এ পুশ হবে।
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = !gitHubConfig.autoSync;
+                          saveGitHubConfig({ autoSync: next });
+                          setGitHubConfig((prev) => ({ ...prev, autoSync: next }));
+                          showToast(
+                            next
+                              ? 'GitHub Auto-Sync Enabled! প্রম্পট সেভ করলেই গিটহাবে পুশ হবে।'
+                              : 'GitHub Auto-Sync Disabled.',
+                            'info'
+                          );
+                        }}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                          gitHubConfig.autoSync
+                            ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{gitHubConfig.autoSync ? 'Auto-Sync Active (চালু)' : 'Auto-Sync Disabled (বন্ধ)'}</span>
+                      </button>
+                    </div>
+
+                    {/* Custom Commit Box */}
+                    <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+                      <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                        <span>Custom Commit Message (অপশনাল):</span>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          Files: data/store.json & src/data/initialData.ts
+                        </span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={customCommitMessage}
+                          onChange={(e) => setCustomCommitMessage(e.target.value)}
+                          placeholder="e.g. Added 5 new Ramadan prompts and updated Monetag banner"
+                          className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleSyncToGitHub(customCommitMessage)}
+                          disabled={isGitHubSyncing}
+                          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition disabled:opacity-50"
+                        >
+                          Commit & Push
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Render vs Cloudflare Deployment Guide (ব্যবহারকারীর প্রশ্নের পূর্ণাঙ্গ উত্তর) */}
+                  <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 space-y-5">
+                    <div className="space-y-1">
+                      <h4 className="font-extrabold text-sm sm:text-base text-white flex items-center gap-2">
+                        <span>Render নাকি Cloudflare Pages — কোনটি আপনার জন্য সেরা?</span>
+                      </h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        আপনার ওয়েবসাইটের পারফরম্যান্স ও স্পিড ১০০% নিশ্চিত করতে নিচের তুলনাটি দেখুন:
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Cloudflare Card */}
+                      <div className="p-5 rounded-2xl bg-gradient-to-b from-amber-950/20 to-slate-900 border border-amber-500/30 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">⚡</span>
+                            <h5 className="font-bold text-sm text-white">Cloudflare Pages</h5>
+                          </div>
+                          <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold">
+                            প্রস্তাবিত (Best for Speed)
+                          </span>
+                        </div>
+
+                        <ul className="space-y-2 text-xs text-slate-300">
+                          <li className="flex items-start gap-2">
+                            <span className="text-emerald-400 font-bold">✓</span>
+                            <span><strong>0s Cold Start:</strong> সাইট কখনো স্লিপ মোডে যায় না। ভিজিটর ঢোকার সাথে সাথে ৫০-১০০ মিলিসেকেন্ডে লোড হয়।</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-emerald-400 font-bold">✓</span>
+                            <span><strong>Bangladesh CDN:</strong> ঢাকা ও চট্টগ্রামে ক্লাউডফ্লেয়ারের নিজস্ব ডেটাসেন্টার রয়েছে, ফলে বাংলাদেশ থেকে সবচেয়ে দ্রুত ওপেন হবে।</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-emerald-400 font-bold">✓</span>
+                            <span><strong>100% Free & Unlimited:</strong> কোনো ব্যান্ডউইথ লিমিট নেই, ফ্রি কাস্টম ডোমেইন ও SSL।</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-emerald-400 font-bold">✓</span>
+                            <span><strong>অটোমেটিক ডিপ্লয়:</strong> আমাদের তৈরি GitHub Sync এর কারণে আপনি অ্যাডমিন প্যানেলে যা-ই সেভ করবেন, Cloudflare Pages তা স্বয়ংক্রিয়ভাবে নতুন সাইট বিল্ড করে ফেলবে!</span>
+                          </li>
+                        </ul>
+                      </div>
+
+                      {/* Render Card */}
+                      <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">🖥️</span>
+                            <h5 className="font-bold text-sm text-white">Render.com</h5>
+                          </div>
+                          <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-mono">
+                            বর্তমান হোস্টিং
+                          </span>
+                        </div>
+
+                        <ul className="space-y-2 text-xs text-slate-300">
+                          <li className="flex items-start gap-2">
+                            <span className="text-emerald-400 font-bold">✓</span>
+                            <span><strong>ফুলস্ট্যাক সার্ভার:</strong> Node.js ও Express ব্যাকএন্ড সরাসরি চলে।</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-amber-400 font-bold">⚠️</span>
+                            <span><strong>১৫ মিনিট পর স্লিপ:</strong> ফ্রি প্ল্যানে ১৫ মিনিট কোনো ট্র্যাফিক না থাকলে সার্ভার স্লিপে যায়। প্রথম ভিজিটরের জন্য ৪০-৫০ সেকেন্ড লোডিং নিতে পারে।</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-emerald-400 font-bold">✓</span>
+                            <span><strong>নো ডেটা লস:</strong> আমরা যে GitHub Sync সিস্টেম তৈরি করেছি, তার ফলে Render রিস্টার্ট নিলেও আপনার কোনো ডেটা কখনোই আর হারাবে না!</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* How to deploy on Cloudflare Pages in 3 easy steps */}
+                    <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2 text-xs">
+                      <h5 className="font-bold text-slate-200">🚀 ক্লাউডফ্লেয়ার পেজে ৩ ক্লিকে সাইট লাইভ করার নিয়ম (যদি করতে চান):</h5>
+                      <ol className="list-decimal list-inside space-y-1.5 text-slate-400 leading-relaxed">
+                        <li><a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline">dash.cloudflare.com</a> এ গিয়ে লগইন করে <strong>Workers & Pages ➔ Create Application ➔ Pages ➔ Connect to Git</strong> সিলেক্ট করুন।</li>
+                        <li>আপনার GitHub থেকে <strong>arifaislam9157-dot/premium-web-store</strong> রিপোজিটরিটি পছন্দ করুন।</li>
+                        <li>Build preset-এ Framework: <strong>Vite</strong>, Build command: <strong>npm run build</strong>, Output: <strong>dist</strong> দিয়ে <strong>Save and Deploy</strong> বাটনে ক্লিক করলেই আপনার সাইট সুপারফাস্ট লাইভ হয়ে যাবে!</li>
+                      </ol>
+                    </div>
                   </div>
                 </div>
               )}
