@@ -2,7 +2,7 @@ import { StoreData } from '../types';
 
 export const INITIAL_STORE_DATA: StoreData = {
   "version": "1.2.0",
-  "lastUpdated": "2026-09-29T08:55:30.987Z",
+  "lastUpdated": "2026-09-29T08:56:21.790Z",
   "settings": {
     "siteName": "Premium Web store",
     "tagline": "সেরা AI প্রম্পট ও রেডি কোড দিয়ে সেকেন্ডে তৈরি করুন আপনার আইডিয়া",
