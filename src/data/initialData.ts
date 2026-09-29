@@ -2,7 +2,7 @@ import { StoreData } from '../types';
 
 export const INITIAL_STORE_DATA: StoreData = {
   "version": "1.2.0",
-  "lastUpdated": "2026-09-29T08:56:21.790Z",
+  "lastUpdated": "2026-09-29T15:45:28.313Z",
   "settings": {
     "siteName": "Premium Web store",
     "tagline": "সেরা AI প্রম্পট ও রেডি কোড দিয়ে সেকেন্ডে তৈরি করুন আপনার আইডিয়া",
@@ -67,6 +67,36 @@ export const INITIAL_STORE_DATA: StoreData = {
     }
   ],
   "prompts": [
+    {
+      "id": "p-1790696728239",
+      "title": "bn fgbhfdhgrjh000000000",
+      "category": "web-codes",
+      "platform": "Bing Image Creator",
+      "badge": "Trending",
+      "tags": [
+        "3D Wings",
+        "Neon",
+        "Bing"
+      ],
+      "description": "",
+      "promptText": "hfghh",
+      "previewImageUrl": "https://i.postimg.cc/RhCK68Lc/images.jpg",
+      "thumbnailUrl": "https://i.postimg.cc/RhCK68Lc/images.jpg",
+      "directActionUrl": "https://www.bing.com/images/create",
+      "variables": [
+        {
+          "key": "NAME",
+          "label": "Your Name",
+          "defaultValue": "Arif",
+          "placeholder": "Enter Your Name"
+        }
+      ],
+      "views": 1,
+      "copies": 0,
+      "likes": 0,
+      "createdAt": "2026-09-29T15:45:28.239Z",
+      "updatedAt": "2026-09-29T15:45:28.240Z"
+    },
     {
       "id": "p-1790672129428",
       "title": "cxbhfgjtdytytr57856658",
