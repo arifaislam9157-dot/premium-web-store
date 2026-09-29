@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "lastUpdated": "2026-09-29T15:49:02.739Z",
+  "lastUpdated": "2026-09-29T15:53:03.226Z",
   "settings": {
     "siteName": "Premium Web store",
     "tagline": "সেরা AI প্রম্পট ও রেডি কোড দিয়ে সেকেন্ডে তৈরি করুন আপনার আইডিয়া",
@@ -65,6 +65,36 @@
     }
   ],
   "prompts": [
+    {
+      "id": "p-1790697181071",
+      "title": "Kydyidx5555555",
+      "category": "web-codes",
+      "platform": "Bing Image Creator",
+      "badge": "Trending",
+      "tags": [
+        "3D Wings",
+        "Neon",
+        "Bing"
+      ],
+      "description": "",
+      "promptText": "yldhkk",
+      "previewImageUrl": "https://i.postimg.cc/tTkVjkQv/The-Paradise-Poster-2c67d280-75d9-11f0-8df3-db01d1baa444.jpg",
+      "thumbnailUrl": "https://i.postimg.cc/tTkVjkQv/The-Paradise-Poster-2c67d280-75d9-11f0-8df3-db01d1baa444.jpg",
+      "directActionUrl": "https://www.bing.com/images/create",
+      "variables": [
+        {
+          "key": "NAME",
+          "label": "Your Name",
+          "defaultValue": "Arif",
+          "placeholder": "Enter Your Name"
+        }
+      ],
+      "views": 1,
+      "copies": 0,
+      "likes": 0,
+      "createdAt": "2026-09-29T15:53:01.071Z",
+      "updatedAt": "2026-09-29T15:53:01.077Z"
+    },
     {
       "id": "p-1790696728239",
       "title": "bn fgbhfdhgrjh000000000",
