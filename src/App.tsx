@@ -39,7 +39,7 @@ const HERO_LINES = [
 
 export default function App() {
   const [storeData, setStoreData] = useState<StoreData>(INITIAL_STORE_DATA);
-  const [currentView, setCurrentView] = useState<'home' | 'ai-test-lab' | 'image-toolkit' | 'single-post'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'ai-test-lab' | 'image-toolkit' | 'single-post' | 'admin'>('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformType>('All');
@@ -60,8 +60,10 @@ export default function App() {
     const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
     const hash = window.location.hash.toLowerCase();
 
-    // 1. /admin or #admin route opens Admin Panel directly
+    // 1. /admin or #admin route opens Admin Panel directly as a dedicated full screen page
     if (pathname === '/admin' || hash === '#admin') {
+      setCurrentView('admin');
+      setActivePrompt(null);
       setAdminOpen(true);
       return;
     }
@@ -103,7 +105,7 @@ export default function App() {
     // Default root path
     if (pathname === '/' && !hash) {
       setAdminOpen(false);
-      if (currentView === 'single-post') {
+      if (currentView === 'single-post' || currentView === 'admin') {
         setActivePrompt(null);
         setCurrentView('home');
       }
@@ -384,6 +386,25 @@ export default function App() {
   const underCodeAdSlot = storeData.adSlots.find((a) => a.placement === 'under_prompt_modal');
   const stickyFooterAdSlot = storeData.adSlots.find((a) => a.placement === 'sticky_footer');
 
+  // Dedicated Full-Page Admin Portal (No cramped modal popup)
+  if (adminOpen) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-cyan-500 selection:text-slate-950">
+        <AdminPanel
+          isOpen={true}
+          onClose={handleCloseAdmin}
+          storeData={storeData}
+          onUpdateStoreData={(newData) => setStoreData(newData)}
+          showToast={showToast}
+          initialEditPrompt={editPromptTarget}
+          onClearInitialEditPrompt={() => setEditPromptTarget(null)}
+          isFullScreen={true}
+        />
+        <Toast toasts={toasts} onDismiss={dismissToast} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col selection:bg-blue-500 selection:text-white">
       {/* Top Reading Progress Bar (hubuhu like promptbox.store) */}
@@ -409,7 +430,7 @@ export default function App() {
         favoritesCount={favorites.length}
         onOpenFavorites={() => setFavoritesDrawerOpen(true)}
         onOpenAdmin={() => setAdminOpen(true)}
-        currentView={currentView === 'single-post' ? 'home' : currentView}
+        currentView={currentView === 'single-post' || currentView === 'admin' ? 'home' : currentView}
         onNavigate={handleNavigate}
         isLightMode={isLightMode}
         onToggleTheme={handleToggleTheme}
@@ -684,17 +705,6 @@ export default function App() {
         favoritePrompts={favoritePrompts}
         onOpenPrompt={handleOpenDetail}
         onRemoveFavorite={handleToggleFavorite}
-      />
-
-      {/* Admin Panel */}
-      <AdminPanel
-        isOpen={adminOpen}
-        onClose={handleCloseAdmin}
-        storeData={storeData}
-        onUpdateStoreData={(newData) => setStoreData(newData)}
-        showToast={showToast}
-        initialEditPrompt={editPromptTarget}
-        onClearInitialEditPrompt={() => setEditPromptTarget(null)}
       />
 
       {/* Toast Notifications */}
