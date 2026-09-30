@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "lastUpdated": "2026-09-29T15:53:03.226Z",
+  "lastUpdated": "2026-09-30T11:27:11.486Z",
   "settings": {
     "siteName": "Premium Web store",
     "tagline": "সেরা AI প্রম্পট ও রেডি কোড দিয়ে সেকেন্ডে তৈরি করুন আপনার আইডিয়া",
@@ -66,8 +66,8 @@
   ],
   "prompts": [
     {
-      "id": "p-1790697181071",
-      "title": "Kydyidx5555555",
+      "id": "p-1790767631486",
+      "title": "jshjgh",
       "category": "web-codes",
       "platform": "Bing Image Creator",
       "badge": "Trending",
@@ -77,67 +77,7 @@
         "Bing"
       ],
       "description": "",
-      "promptText": "yldhkk",
-      "previewImageUrl": "https://i.postimg.cc/tTkVjkQv/The-Paradise-Poster-2c67d280-75d9-11f0-8df3-db01d1baa444.jpg",
-      "thumbnailUrl": "https://i.postimg.cc/tTkVjkQv/The-Paradise-Poster-2c67d280-75d9-11f0-8df3-db01d1baa444.jpg",
-      "directActionUrl": "https://www.bing.com/images/create",
-      "variables": [
-        {
-          "key": "NAME",
-          "label": "Your Name",
-          "defaultValue": "Arif",
-          "placeholder": "Enter Your Name"
-        }
-      ],
-      "views": 1,
-      "copies": 0,
-      "likes": 0,
-      "createdAt": "2026-09-29T15:53:01.071Z",
-      "updatedAt": "2026-09-29T15:53:01.077Z"
-    },
-    {
-      "id": "p-1790696728239",
-      "title": "bn fgbhfdhgrjh000000000",
-      "category": "web-codes",
-      "platform": "Bing Image Creator",
-      "badge": "Trending",
-      "tags": [
-        "3D Wings",
-        "Neon",
-        "Bing"
-      ],
-      "description": "",
-      "promptText": "hfghh",
-      "previewImageUrl": "https://i.postimg.cc/RhCK68Lc/images.jpg",
-      "thumbnailUrl": "https://i.postimg.cc/RhCK68Lc/images.jpg",
-      "directActionUrl": "https://www.bing.com/images/create",
-      "variables": [
-        {
-          "key": "NAME",
-          "label": "Your Name",
-          "defaultValue": "Arif",
-          "placeholder": "Enter Your Name"
-        }
-      ],
-      "views": 1,
-      "copies": 0,
-      "likes": 0,
-      "createdAt": "2026-09-29T15:45:28.239Z",
-      "updatedAt": "2026-09-29T15:45:28.240Z"
-    },
-    {
-      "id": "p-1790672129428",
-      "title": "cxbhfgjtdytytr57856658",
-      "category": "web-codes",
-      "platform": "Bing Image Creator",
-      "badge": "Trending",
-      "tags": [
-        "3D Wings",
-        "Neon",
-        "Bing"
-      ],
-      "description": "",
-      "promptText": "fghsfgjs",
+      "promptText": "cx\\fd",
       "previewImageUrl": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80",
       "thumbnailUrl": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80",
       "directActionUrl": "https://www.bing.com/images/create",
@@ -152,8 +92,8 @@
       "views": 1,
       "copies": 0,
       "likes": 0,
-      "createdAt": "2026-09-29T08:55:29.428Z",
-      "updatedAt": "2026-09-29T08:55:29.428Z"
+      "createdAt": "2026-09-30T11:27:11.486Z",
+      "updatedAt": "2026-09-30T11:27:11.486Z"
     },
     {
       "id": "future-girlfriend-prediction",
@@ -381,7 +321,7 @@
       "code": "<div style=\"background: rgba(19, 28, 49, 0.4); border: 2px dashed rgba(59, 130, 246, 0.25); border-radius: 12px; padding: 10px; text-align: center; max-width: 728px; margin: 0 auto;\">\n  <span style=\"font-size: 11px; color: #94a3b8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em;\">Advertisement (728x90 Banner)</span>\n  <div style=\"margin-top: 6px; font-size: 12px; color: #38bdf8;\">Your Adsterra / Monetag / CPMBid / HilltopAds Banner appears here</div>\n</div>",
       "codeSnippet": "<div style=\"background: rgba(19, 28, 49, 0.4); border: 2px dashed rgba(59, 130, 246, 0.25); border-radius: 12px; padding: 10px; text-align: center; max-width: 728px; margin: 0 auto;\">\n  <span style=\"font-size: 11px; color: #94a3b8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em;\">Advertisement (728x90 Banner)</span>\n  <div style=\"margin-top: 6px; font-size: 12px; color: #38bdf8;\">Your Adsterra / Monetag / CPMBid / HilltopAds Banner appears here</div>\n</div>",
       "enabled": true,
-      "lastUpdated": "2026-09-29T07:56:46.888Z"
+      "lastUpdated": "2026-09-30T11:26:15.213Z"
     },
     {
       "id": "slot-in-feed-native",
@@ -391,7 +331,7 @@
       "code": "<div style=\"background: rgba(19, 28, 49, 0.85); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 16px; padding: 20px; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 100%; min-height: 280px;\">\n  <span style=\"display: inline-block; font-size: 10px; text-transform: uppercase; background: rgba(59, 130, 246, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 6px; font-weight: bold; width: fit-content; margin: 0 auto 10px;\">Sponsored Partner</span>\n  <h4 style=\"font-size: 15px; font-weight: bold; color: #fff; margin-bottom: 6px;\">Discover Premium Web Tools & Offers</h4>\n  <p style=\"font-size: 12px; color: #94a3b8; margin-bottom: 14px;\">Instant downloads, AI enhancers, and web resources for developers.</p>\n  <a href=\"https://example.com\" target=\"_blank\" style=\"display: inline-block; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: bold; text-decoration: none;\">Explore Offer ➔</a>\n</div>",
       "codeSnippet": "<div style=\"background: rgba(19, 28, 49, 0.85); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 16px; padding: 20px; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 100%; min-height: 280px;\">\n  <span style=\"display: inline-block; font-size: 10px; text-transform: uppercase; background: rgba(59, 130, 246, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 6px; font-weight: bold; width: fit-content; margin: 0 auto 10px;\">Sponsored Partner</span>\n  <h4 style=\"font-size: 15px; font-weight: bold; color: #fff; margin-bottom: 6px;\">Discover Premium Web Tools & Offers</h4>\n  <p style=\"font-size: 12px; color: #94a3b8; margin-bottom: 14px;\">Instant downloads, AI enhancers, and web resources for developers.</p>\n  <a href=\"https://example.com\" target=\"_blank\" style=\"display: inline-block; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: bold; text-decoration: none;\">Explore Offer ➔</a>\n</div>",
       "enabled": true,
-      "lastUpdated": "2026-09-29T07:56:46.888Z"
+      "lastUpdated": "2026-09-30T11:26:15.213Z"
     },
     {
       "id": "slot-under-code-modal",
@@ -401,7 +341,7 @@
       "code": "<div style=\"background: rgba(19, 28, 49, 0.6); border: 1px dashed rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 12px; text-align: center; margin: 16px 0;\">\n  <span style=\"font-size: 10px; color: #94a3b8; font-weight: bold;\">SPONSORED ADVERTISEMENT</span>\n  <p style=\"font-size: 12px; color: #38bdf8; margin: 4px 0 0;\">Place your Adsterra 468x60, 300x250, or native ad code here</p>\n</div>",
       "codeSnippet": "<div style=\"background: rgba(19, 28, 49, 0.6); border: 1px dashed rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 12px; text-align: center; margin: 16px 0;\">\n  <span style=\"font-size: 10px; color: #94a3b8; font-weight: bold;\">SPONSORED ADVERTISEMENT</span>\n  <p style=\"font-size: 12px; color: #38bdf8; margin: 4px 0 0;\">Place your Adsterra 468x60, 300x250, or native ad code here</p>\n</div>",
       "enabled": true,
-      "lastUpdated": "2026-09-29T07:56:46.888Z"
+      "lastUpdated": "2026-09-30T11:26:15.213Z"
     },
     {
       "id": "slot-sticky-footer",
@@ -411,7 +351,7 @@
       "code": "<div style=\"text-align: center; padding: 4px 0;\">\n  <span style=\"font-size: 10px; color: #94a3b8;\">Sponsor Banner (HilltopAds / Clickadu / Monetag)</span>\n  <div style=\"font-size: 12px; color: #e2e8f0; font-weight: bold;\">Unlock High Speed Downloads & AI Pro Prompts</div>\n</div>",
       "codeSnippet": "<div style=\"text-align: center; padding: 4px 0;\">\n  <span style=\"font-size: 10px; color: #94a3b8;\">Sponsor Banner (HilltopAds / Clickadu / Monetag)</span>\n  <div style=\"font-size: 12px; color: #e2e8f0; font-weight: bold;\">Unlock High Speed Downloads & AI Pro Prompts</div>\n</div>",
       "enabled": true,
-      "lastUpdated": "2026-09-29T07:56:46.888Z"
+      "lastUpdated": "2026-09-30T11:26:15.213Z"
     },
     {
       "id": "slot-direct-link-popunder",
@@ -421,7 +361,7 @@
       "code": "<!-- Place Clickadu / Adsterra / Monetag Popunder / Direct Link script here -->",
       "codeSnippet": "<!-- Place Clickadu / Adsterra / Monetag Popunder / Direct Link script here -->",
       "enabled": false,
-      "lastUpdated": "2026-09-29T07:56:46.888Z"
+      "lastUpdated": "2026-09-30T11:26:15.213Z"
     }
   ]
 }
