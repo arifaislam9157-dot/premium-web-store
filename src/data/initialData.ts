@@ -2,7 +2,7 @@ import { StoreData } from '../types';
 
 export const INITIAL_STORE_DATA: StoreData = {
   "version": "1.2.0",
-  "lastUpdated": "2026-09-30T11:33:49.006Z",
+  "lastUpdated": "2026-09-30T11:35:45.585Z",
   "settings": {
     "siteName": "Premium Web store",
     "tagline": "সেরা AI প্রম্পট ও রেডি কোড দিয়ে সেকেন্ডে তৈরি করুন আপনার আইডিয়া",
@@ -67,36 +67,6 @@ export const INITIAL_STORE_DATA: StoreData = {
     }
   ],
   "prompts": [
-    {
-      "id": "p-1790768029004",
-      "title": "yodtd",
-      "category": "web-codes",
-      "platform": "Bing Image Creator",
-      "badge": "Trending",
-      "tags": [
-        "3D Wings",
-        "Neon",
-        "Bing"
-      ],
-      "description": "",
-      "promptText": "Yof",
-      "previewImageUrl": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80",
-      "thumbnailUrl": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80",
-      "directActionUrl": "https://www.bing.com/images/create",
-      "variables": [
-        {
-          "key": "NAME",
-          "label": "Your Name",
-          "defaultValue": "Arif",
-          "placeholder": "Enter Your Name"
-        }
-      ],
-      "views": 1,
-      "copies": 0,
-      "likes": 0,
-      "createdAt": "2026-09-30T11:33:49.004Z",
-      "updatedAt": "2026-09-30T11:33:49.004Z"
-    },
     {
       "id": "p-1790697181071",
       "title": "Kydyidx5555555",
