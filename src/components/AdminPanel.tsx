@@ -130,22 +130,25 @@ export default function AdminPanel({
     await persistStoreData(newData);
 
     if (gitHubConfig.autoSync) {
-      syncStoreToGitHub(newData, actionDescription)
-        .then((res) => {
-          if (res.success) {
-            setGitHubConfig(getGitHubConfig());
-            setGitHubSyncStatus({
-              success: true,
-              commitSha: res.commitSha,
-              time: res.timestamp,
-              message: `GitHub repository (${gitHubConfig.repo}) এ অটো-সেভ সম্পন্ন! (Commit: ${res.commitSha?.slice(
-                0,
-                7
-              )})`,
-            });
-          }
-        })
-        .catch((err) => console.warn('[GitHub Auto-Sync Error]', err));
+      try {
+        const res = await syncStoreToGitHub(newData, actionDescription);
+        if (res.success) {
+          setGitHubConfig(getGitHubConfig());
+          setGitHubSyncStatus({
+            success: true,
+            commitSha: res.commitSha,
+            time: res.timestamp,
+            message: `GitHub repository (${gitHubConfig.repo}) এ অটো-সেভ সম্পন্ন! (Commit: ${res.commitSha?.slice(
+              0,
+              7
+            )})`,
+          });
+        } else {
+          console.warn('[GitHub Auto-Sync Warning]', res.error);
+        }
+      } catch (err) {
+        console.warn('[GitHub Auto-Sync Error]', err);
+      }
     }
   };
 
