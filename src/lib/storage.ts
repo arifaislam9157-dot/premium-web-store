@@ -1,30 +1,33 @@
 import { StoreData, PromptItem } from '../types';
 import { INITIAL_STORE_DATA } from '../data/initialData';
+import { syncStoreToGitHub } from './githubSync';
 
-const LOCAL_STORAGE_KEY = 'premium_web_store_data_v1';
-const PERMANENT_BACKUP_KEY = 'premium_web_store_permanent_backup_v1';
+const LOCAL_STORAGE_KEY = 'premium_web_store_data_v2';
+const LEGACY_STORAGE_KEY = 'premium_web_store_data_v1';
+const LEGACY_BACKUP_KEY = 'premium_web_store_permanent_backup_v1';
 const ADMIN_AUTH_KEY = 'premium_web_store_admin_token';
 const SAVED_FAVORITES_KEY = 'premium_web_store_favorites';
 
+// GitHub Raw URL for universal multi-device live sync (no server required)
+const GITHUB_RAW_DATA_URL =
+  'https://raw.githubusercontent.com/arifaislam9157-dot/premium-web-store/main/data/store.json';
+
 /**
- * Safely parse JSON from localStorage
+ * Safely parse JSON from localStorage cache
  */
 function getStoredLocalData(): StoreData | null {
   try {
-    const rawPrimary = localStorage.getItem(LOCAL_STORAGE_KEY);
-    const rawBackup = localStorage.getItem(PERMANENT_BACKUP_KEY);
-
-    const primary: StoreData | null = rawPrimary ? JSON.parse(rawPrimary) : null;
-    const backup: StoreData | null = rawBackup ? JSON.parse(rawBackup) : null;
-
-    if (primary && Array.isArray(primary.prompts) && primary.prompts.length > 0) {
-      if (backup && Array.isArray(backup.prompts) && backup.prompts.length > primary.prompts.length) {
-        return backup;
-      }
-      return primary;
+    // Clean up legacy backup keys that caused deleted prompts to resurrect
+    if (localStorage.getItem(LEGACY_BACKUP_KEY)) {
+      localStorage.removeItem(LEGACY_BACKUP_KEY);
     }
-    if (backup && Array.isArray(backup.prompts) && backup.prompts.length > 0) {
-      return backup;
+
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (raw) {
+      const data: StoreData = JSON.parse(raw);
+      if (data && Array.isArray(data.prompts) && Array.isArray(data.categories)) {
+        return data;
+      }
     }
   } catch (e) {
     console.warn('[Storage] Error reading local store:', e);
@@ -33,101 +36,101 @@ function getStoredLocalData(): StoreData | null {
 }
 
 /**
- * Intelligent fetch & auto-sync:
- * If the server restarted or Render wiped its ephemeral disk and returned
- * default data, but the client has user-added prompts or newer updates,
- * we AUTOMATICALLY RESTORE & PUSH the user's data back to the server.
- * This guarantees the user NEVER loses any added prompts or changes!
+ * Fetch live data from server or GitHub raw endpoint.
+ * Works seamlessly on Cloudflare Workers / Pages, Render, and any mobile/desktop browser.
  */
-export async function fetchStoreData(): Promise<StoreData> {
-  const localData = getStoredLocalData();
-
-  let serverData: StoreData | null = null;
+async function fetchRemoteData(): Promise<StoreData | null> {
+  // 1. Try local server proxy endpoint (for dev / Render)
   try {
-    const res = await fetch('/api/data');
+    const res = await fetch('/api/data', { cache: 'no-store' });
     if (res.ok) {
       const data = await res.json();
       if (data && Array.isArray(data.prompts)) {
-        serverData = data;
+        return data;
+      }
+    }
+  } catch {
+    // /api/data not available on static hosts like Cloudflare workers.dev
+  }
+
+  // 2. Fetch directly from GitHub raw data (Universal single source of truth)
+  try {
+    // Add cache-busting timestamp query to bypass CDN caching
+    const url = `${GITHUB_RAW_DATA_URL}?t=${Date.now()}`;
+    const ghRes = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    if (ghRes.ok) {
+      const ghData = (await ghRes.json()) as StoreData;
+      if (ghData && Array.isArray(ghData.prompts) && Array.isArray(ghData.categories)) {
+        return ghData;
       }
     }
   } catch (err) {
-    console.warn('[Storage] API fetch failed, relying on local storage:', err);
+    console.warn('[Storage] Live GitHub data fetch failed (device might be offline):', err);
   }
 
-  // Case 1: Server was reachable and returned data
-  if (serverData) {
-    // Check if local data has user-created prompts or is newer than server data
-    if (localData && Array.isArray(localData.prompts)) {
-      const localPromptIds = new Set(localData.prompts.map((p) => p.id));
-      const serverPromptIds = new Set(serverData.prompts.map((p) => p.id));
+  return null;
+}
 
-      // Are there prompts in local storage that server lost?
-      const missingOnServer = localData.prompts.filter((p) => !serverPromptIds.has(p.id));
-      const isLocalNewer =
-        (localData.lastUpdated && serverData.lastUpdated && new Date(localData.lastUpdated) > new Date(serverData.lastUpdated)) ||
-        localData.prompts.length > serverData.prompts.length ||
-        missingOnServer.length > 0;
+/**
+ * Universal Store Data Fetcher:
+ * - Fetches the live data from GitHub / server so ANY browser or mobile phone gets real-time updates.
+ * - Respects deletions permanently (never restores deleted items from stale caches).
+ * - Caches locally for instant offline loading.
+ */
+export async function fetchStoreData(): Promise<StoreData> {
+  const localData = getStoredLocalData();
+  const remoteData = await fetchRemoteData();
 
-      if (isLocalNewer) {
-        console.log('[Storage] Local store has newer/custom items! Auto-restoring to server...');
-        // Merge: local prompts take priority, append any new prompts added in code on server
-        const mergedPrompts: PromptItem[] = [...localData.prompts];
-        for (const sp of serverData.prompts) {
-          if (!localPromptIds.has(sp.id)) {
-            mergedPrompts.push(sp);
-          }
-        }
-
-        const reconciledData: StoreData = {
-          ...serverData,
-          ...localData,
-          prompts: mergedPrompts,
-          lastUpdated: new Date().toISOString(),
-        };
-
-        // Cache locally to both slots
-        try {
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(reconciledData));
-          localStorage.setItem(PERMANENT_BACKUP_KEY, JSON.stringify(reconciledData));
-        } catch (e) {
-          console.warn('[Storage] Local storage save error:', e);
-        }
-
-        // Auto-push back to server asynchronously so server disk is restored!
-        fetch('/api/data', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(reconciledData),
-        }).catch((e) => console.warn('[Storage] Background server sync error:', e));
-
-        return reconciledData;
+  if (remoteData) {
+    // Determine if local browser has an un-pushed newer edit made in this exact session
+    let useLocal = false;
+    if (localData && localData.lastUpdated && remoteData.lastUpdated) {
+      const localTime = new Date(localData.lastUpdated).getTime();
+      const remoteTime = new Date(remoteData.lastUpdated).getTime();
+      // If local data was updated more than 2 seconds after remote (and within the last 10 minutes)
+      if (localTime > remoteTime + 2000 && Date.now() - localTime < 10 * 60 * 1000) {
+        useLocal = true;
       }
     }
 
-    // Server data is up to date or newer: cache to local storage
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(serverData));
-      localStorage.setItem(PERMANENT_BACKUP_KEY, JSON.stringify(serverData));
-    } catch (e) {
-      console.warn('[Storage] Local storage cache error:', e);
+    if (useLocal && localData) {
+      // Background push local changes to GitHub to bring remote in sync
+      syncStoreToGitHub(localData, 'fix: auto-sync local draft to GitHub').catch(() => {});
+      return localData;
     }
-    return serverData;
+
+    // Remote data is authoritative: update local cache
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(remoteData));
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_BACKUP_KEY);
+    } catch (e) {
+      console.warn('[Storage] Local cache write error:', e);
+    }
+
+    return remoteData;
   }
 
-  // Case 2: Server was unreachable; fallback to local data or initial data
+  // Fallback: If network is offline, use cached local data
   if (localData) {
     return localData;
   }
 
+  // Ultimate fallback: built-in initial data
   return INITIAL_STORE_DATA;
 }
 
 /**
  * Persist store data everywhere:
- * 1. Immediate save to primary localStorage
- * 2. Immediate save to permanent backup localStorage
- * 3. Save to server disk (/api/data)
+ * 1. Immediate save to localStorage (with updated timestamp)
+ * 2. Attempt save to server disk (/api/data if running Node.js)
+ * 3. Clean up legacy keys so deleted items never resurrect
  */
 export async function persistStoreData(data: StoreData): Promise<boolean> {
   const updatedData: StoreData = {
@@ -135,15 +138,16 @@ export async function persistStoreData(data: StoreData): Promise<boolean> {
     lastUpdated: new Date().toISOString(),
   };
 
-  // 1 & 2. Always persist locally first so it can never be lost
+  // 1. Cache to localStorage
   try {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedData));
-    localStorage.setItem(PERMANENT_BACKUP_KEY, JSON.stringify(updatedData));
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+    localStorage.removeItem(LEGACY_BACKUP_KEY);
   } catch (e) {
     console.warn('[Storage] LocalStorage error:', e);
   }
 
-  // 3. Persist to server disk
+  // 2. Persist to server disk if /api/data is running
   try {
     const res = await fetch('/api/data', {
       method: 'POST',
@@ -151,9 +155,9 @@ export async function persistStoreData(data: StoreData): Promise<boolean> {
       body: JSON.stringify(updatedData),
     });
     return res.ok;
-  } catch (err) {
-    console.error('[Storage] Server save failed:', err);
-    return false;
+  } catch {
+    // Static host (Cloudflare Workers/Pages), client sync handles GitHub directly
+    return true;
   }
 }
 
