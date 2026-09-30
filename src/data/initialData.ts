@@ -2,7 +2,7 @@ import { StoreData } from '../types';
 
 export const INITIAL_STORE_DATA: StoreData = {
   "version": "1.2.0",
-  "lastUpdated": "2026-09-30T11:35:45.585Z",
+  "lastUpdated": "2026-09-30T11:53:20.086Z",
   "settings": {
     "siteName": "Premium Web store",
     "tagline": "সেরা AI প্রম্পট ও রেডি কোড দিয়ে সেকেন্ডে তৈরি করুন আপনার আইডিয়া",
@@ -109,9 +109,9 @@ export const INITIAL_STORE_DATA: StoreData = {
         "Bing"
       ],
       "description": "",
-      "promptText": "hfghh",
-      "previewImageUrl": "https://i.postimg.cc/RhCK68Lc/images.jpg",
-      "thumbnailUrl": "https://i.postimg.cc/RhCK68Lc/images.jpg",
+      "promptText": "#",
+      "previewImageUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80",
+      "thumbnailUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80",
       "directActionUrl": "https://www.bing.com/images/create",
       "variables": [
         {
@@ -125,7 +125,7 @@ export const INITIAL_STORE_DATA: StoreData = {
       "copies": 0,
       "likes": 0,
       "createdAt": "2026-09-29T15:45:28.239Z",
-      "updatedAt": "2026-09-29T15:45:28.240Z"
+      "updatedAt": "2026-09-30T11:53:20.086Z"
     },
     {
       "id": "p-1790672129428",
