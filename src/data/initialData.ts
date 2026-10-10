@@ -125,6 +125,36 @@ export const INITIAL_STORE_DATA: StoreData = {
   ],
   "prompts": [
     {
+      "id": "premium-vcfg-master-prompt",
+      "title": "প্রিমিয়াম ভাইরাল ভিডিও ক্রিয়েশন ও রেডি কোড মাস্টারক্লাস (Premium Master Prompt)",
+      "category": "web-codes",
+      "platform": "Bing Image Creator",
+      "badge": "Pro",
+      "promptText": "Hyper-realistic 8K cinematic portrait of a young stylish Bangladeshi man sitting in front of a futuristic neon cyber-room with holographic UI displays, atmospheric volumetric lighting, octane render, vivid emerald and cyan cyberpunk tones, high-fashion streetwear, photorealistic 3D textures --ar 16:9 --style raw --v 6.0",
+      "previewImageUrl": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
+      "thumbnailUrl": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80",
+      "description": "প্রম্পটবক্স স্টাইলের ফুল প্রিমিয়াম ভিডিও ও প্রম্পট। ভিডিও টিউটোরিয়াল ও স্ক্রিপ্ট দেখতে নিচে পিন কোড 4821 দিয়ে অথবা বিকাশ/নগদে ১০০ টাকা পেমেন্ট করে তাৎক্ষণিক আনলক করুন।",
+      "tags": [
+        "Premium",
+        "Viral Video",
+        "Ready Code",
+        "PIN 4821",
+        "৳100",
+        "Blogger"
+      ],
+      "views": 12000,
+      "copies": 420,
+      "likes": 89,
+      "isFeatured": true,
+      "featured": true,
+      "isLocked": true,
+      "price": "৳100",
+      "pin": "4821",
+      "videoUrl": "",
+      "vcfg": "<div class=\"vcfg\">\nVIDEO URL: >\nVIDEO STATUS: LOCKED<br>\nVIDEO CATEGORY: Premium<br>\nPRICE: ৳100<br>\nVIEWS: 12K<br>\nPIN: 4821\n</div>",
+      "createdAt": "2026-09-25"
+    },
+    {
       "id": "future-girlfriend-prediction",
       "title": "ভবিষ্যত প্রেমিকা প্রেডিকশন ওয়েবসাইট রেডি কোড।",
       "category": "web-codes",
