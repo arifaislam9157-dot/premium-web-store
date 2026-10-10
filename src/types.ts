@@ -38,6 +38,9 @@ export interface PromptItem {
   isFeatured?: boolean;
   isLocked?: boolean;
   price?: string;
+  pin?: string;
+  videoUrl?: string;
+  vcfg?: string;
   taskVerifyRequired?: boolean;
   createdAt?: string;
   updatedAt?: string;

@@ -241,6 +241,52 @@ export default function PromptModal({
                 )}
               </div>
 
+              {/* Video Player if videoUrl exists */}
+              {prompt.videoUrl && (
+                <div className="rounded-xl overflow-hidden border border-slate-800 bg-slate-950 aspect-video shadow-lg">
+                  <iframe
+                    src={
+                      prompt.videoUrl.includes('watch?v=')
+                        ? prompt.videoUrl.replace('watch?v=', 'embed/')
+                        : prompt.videoUrl
+                    }
+                    title={prompt.title}
+                    className="w-full h-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              )}
+
+              {/* VCFG Config Preview Badge */}
+              {(prompt.vcfg || (prompt.isLocked && prompt.price)) && (
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-amber-500/30 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold text-[11px] font-mono">
+                      VIDEO STATUS: {prompt.isLocked ? 'LOCKED 🔒' : 'UNLOCKED ✅'}
+                    </span>
+                    <span className="text-slate-400 text-[11px]">
+                      CATEGORY: <strong className="text-slate-200">{prompt.category}</strong>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px] font-mono">
+                    {prompt.price && (
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
+                        PRICE: {prompt.price}
+                      </span>
+                    )}
+                    <span className="text-slate-400">
+                      VIEWS: {typeof prompt.views === 'number' && prompt.views >= 1000 ? `${(prompt.views / 1000).toFixed(0)}K` : prompt.views}
+                    </span>
+                    {prompt.pin && (
+                      <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">
+                        PIN: {prompt.pin}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Unlock Panel OR Prompt Text & Copy */}
               {promptNeedsUnlock ? (
                 <PromptUnlockPanel

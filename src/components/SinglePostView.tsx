@@ -199,6 +199,54 @@ export default function SinglePostView({
         </div>
       )}
 
+      {/* Video Embed Player (if videoUrl is present) */}
+      {prompt.videoUrl && (
+        <div className="rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 aspect-video shadow-2xl relative">
+          <iframe
+            src={
+              prompt.videoUrl.includes('watch?v=')
+                ? prompt.videoUrl.replace('watch?v=', 'embed/')
+                : prompt.videoUrl
+            }
+            title={prompt.title}
+            className="w-full h-full border-0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      )}
+
+      {/* VCFG Configuration / Premium Meta Block */}
+      {(prompt.vcfg || (prompt.isLocked && prompt.price)) && (
+        <div className="p-3.5 sm:p-4 rounded-xl bg-slate-900/90 border border-amber-500/30 flex flex-wrap items-center justify-between gap-3 shadow-lg">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-300 font-bold text-xs flex items-center gap-1.5 border border-amber-500/30 font-mono">
+              <span>🎬 VIDEO STATUS:</span>
+              <span>{prompt.isLocked ? 'LOCKED 🔒' : 'UNLOCKED ✅'}</span>
+            </span>
+            <span className="text-xs text-slate-300">
+              CATEGORY: <strong className="text-amber-400 font-bold">{prompt.category === 'web-codes' ? 'Premium Web Code' : prompt.category}</strong>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3 text-xs flex-wrap">
+            {prompt.price && (
+              <span className="px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 font-extrabold border border-emerald-500/30">
+                PRICE: {prompt.price}
+              </span>
+            )}
+            <span className="text-slate-400 font-medium">
+              VIEWS: <strong className="text-white">{typeof prompt.views === 'number' && prompt.views >= 1000 ? `${(prompt.views / 1000).toFixed(0)}K` : prompt.views}</strong>
+            </span>
+            {prompt.pin && (
+              <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono text-[11px] border border-blue-500/30">
+                PIN: {prompt.pin}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Description */}
       {prompt.description && (
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs sm:text-sm text-slate-300 leading-relaxed">

@@ -199,6 +199,70 @@ export default function AdminPanel({
   const [formVariablesStr, setFormVariablesStr] = useState('NAME:Your Name:Arif');
   const [formIsLocked, setFormIsLocked] = useState(false);
   const [formPrice, setFormPrice] = useState('');
+  const [formPin, setFormPin] = useState('');
+  const [formVideoUrl, setFormVideoUrl] = useState('');
+  const [formVcfg, setFormVcfg] = useState('');
+  const [vcfgInputText, setVcfgInputText] = useState('');
+  const [showVcfgModal, setShowVcfgModal] = useState(false);
+
+  // Parse VCFG configuration block (Promptbox style)
+  const handleParseVcfg = (rawText: string) => {
+    if (!rawText.trim()) return;
+    try {
+      // Look for VIDEO URL: ...
+      const videoUrlMatch = rawText.match(/VIDEO\s*URL:\s*([^\n<]+)/i);
+      if (videoUrlMatch && videoUrlMatch[1].trim() && videoUrlMatch[1].trim() !== '>') {
+        setFormVideoUrl(videoUrlMatch[1].trim());
+      }
+
+      // Look for VIDEO STATUS: LOCKED / UNLOCKED
+      const statusMatch = rawText.match(/VIDEO\s*STATUS:\s*([^\n<]+)/i);
+      if (statusMatch) {
+        const val = statusMatch[1].trim().toUpperCase();
+        if (val.includes('LOCK')) {
+          setFormIsLocked(true);
+        } else if (val.includes('UNLOCK')) {
+          setFormIsLocked(false);
+        }
+      }
+
+      // Look for VIDEO CATEGORY: ...
+      const categoryMatch = rawText.match(/VIDEO\s*CATEGORY:\s*([^\n<]+)/i);
+      if (categoryMatch) {
+        const cat = categoryMatch[1].trim();
+        if (cat) {
+          const found = storeData.categories.find(
+            (c) =>
+              c.name.toLowerCase().includes(cat.toLowerCase()) ||
+              c.id.toLowerCase() === cat.toLowerCase()
+          );
+          if (found) {
+            setFormCategory(found.id);
+          } else {
+            setFormBadge('Pro');
+          }
+        }
+      }
+
+      // Look for PRICE: ...
+      const priceMatch = rawText.match(/PRICE:\s*([^\n<]+)/i);
+      if (priceMatch) {
+        setFormPrice(priceMatch[1].trim());
+      }
+
+      // Look for PIN: ...
+      const pinMatch = rawText.match(/PIN:\s*([^\n<]+)/i);
+      if (pinMatch) {
+        setFormPin(pinMatch[1].trim());
+      }
+
+      setFormVcfg(rawText.trim());
+      showToast('🎉 VCFG কনফিগারেশন সফলভাবে লোড ও ফর্ম পূরণ হয়েছে!', 'success');
+      setShowVcfgModal(false);
+    } catch {
+      showToast('VCFG পার্স করতে ব্যর্থ হয়েছে!', 'error');
+    }
+  };
 
   // Categories management state
   const [newCatName, setNewCatName] = useState('');
@@ -303,6 +367,10 @@ export default function AdminPanel({
     setFormVariablesStr('NAME:Your Name:Arif');
     setFormIsLocked(false);
     setFormPrice('');
+    setFormPin('');
+    setFormVideoUrl('');
+    setFormVcfg('');
+    setVcfgInputText('');
     setIsAddingPrompt(false);
     setEditingPromptId(null);
   };
@@ -323,6 +391,9 @@ export default function AdminPanel({
     setFormDirectUrl(prompt.directActionUrl || 'https://www.bing.com/images/create');
     setFormIsLocked(!!prompt.isLocked);
     setFormPrice(prompt.price || '');
+    setFormPin(prompt.pin || '');
+    setFormVideoUrl(prompt.videoUrl || '');
+    setFormVcfg(prompt.vcfg || '');
 
     if (prompt.variables && prompt.variables.length > 0) {
       const vStr = prompt.variables
@@ -397,6 +468,9 @@ export default function AdminPanel({
             variables,
             isLocked: formIsLocked,
             price: formPrice.trim() || undefined,
+            pin: formPin.trim() || undefined,
+            videoUrl: formVideoUrl.trim() || undefined,
+            vcfg: formVcfg.trim() || undefined,
             updatedAt: new Date().toISOString(),
           };
         }
@@ -420,6 +494,9 @@ export default function AdminPanel({
         variables,
         isLocked: formIsLocked,
         price: formPrice.trim() || undefined,
+        pin: formPin.trim() || undefined,
+        videoUrl: formVideoUrl.trim() || undefined,
+        vcfg: formVcfg.trim() || undefined,
         views: 1,
         copies: 0,
         likes: 0,
@@ -1253,13 +1330,61 @@ export default function AdminPanel({
                             </p>
                           )}
                         </div>
-                        <button
-                          onClick={resetPromptForm}
-                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
-                        >
-                          Cancel
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowVcfgModal(!showVcfgModal)}
+                            className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition flex items-center gap-1.5"
+                            title="Paste VCFG HTML code to auto-populate form"
+                          >
+                            <span>📋 VCFG কোড অটো-ফিল</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={resetPromptForm}
+                            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
+
+                      {/* VCFG Import & Auto-Parser Box */}
+                      {showVcfgModal && (
+                        <div className="p-4 rounded-xl bg-slate-900 border border-amber-500/40 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-amber-300 flex items-center gap-1.5">
+                              <span>📥 Paste VCFG Block (Promptbox / Blogger কোড পেস্ট করুন):</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setShowVcfgModal(false)}
+                              className="text-xs text-slate-400 hover:text-white"
+                            >
+                              ✕ Close
+                            </button>
+                          </div>
+                          <textarea
+                            value={vcfgInputText}
+                            onChange={(e) => setVcfgInputText(e.target.value)}
+                            rows={6}
+                            placeholder={`<div class="vcfg">\nVIDEO URL: >\nVIDEO STATUS: LOCKED<br>\nVIDEO CATEGORY: Premium<br>\nPRICE: ৳100<br>\nVIEWS: 12K<br>\nPIN: 4821\n</div>`}
+                            className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 font-mono text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-400"
+                          />
+                          <div className="flex items-center justify-between">
+                            <p className="text-[11px] text-slate-400">
+                              ভিএফসিজি কোড থেকে স্বয়ংক্রিয়ভাবে স্ট্যাটাস, ক্যাটাগরি, মূল্য, পিন ও ভিডিও ইউআরএল নেওয়া হবে।
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => handleParseVcfg(vcfgInputText)}
+                              className="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs shadow"
+                            >
+                              🚀 পার্স করুন ও ফর্ম ফিল করুন (Auto-Fill)
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       <form onSubmit={handleSavePrompt} className="space-y-4 text-xs">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1390,35 +1515,74 @@ export default function AdminPanel({
                         </div>
 
                         {/* Lock & Premium Price Controls (Promptbox style) */}
-                        <div className="p-3.5 rounded-xl bg-slate-900/90 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          <label className="flex items-center gap-2.5 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={formIsLocked}
-                              onChange={(e) => setFormIsLocked(e.target.checked)}
-                              className="w-4 h-4 rounded text-amber-500 bg-slate-950 border-slate-700 focus:ring-0"
-                            />
-                            <div>
-                              <span className="font-bold text-xs text-amber-300 flex items-center gap-1.5">
-                                <span>🔒 Lock Post (পেমেন্ট বা টাস্ক ভেরিফাই দিয়ে আনলক)</span>
-                              </span>
+                        <div className="p-3.5 rounded-xl bg-slate-900/90 border border-amber-500/30 space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <label className="flex items-center gap-2.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={formIsLocked}
+                                onChange={(e) => setFormIsLocked(e.target.checked)}
+                                className="w-4 h-4 rounded text-amber-500 bg-slate-950 border-slate-700 focus:ring-0"
+                              />
+                              <div>
+                                <span className="font-bold text-xs text-amber-300 flex items-center gap-1.5">
+                                  <span>🔒 Lock Post (পেমেন্ট বা টাস্ক ভেরিফাই দিয়ে আনলক)</span>
+                                </span>
+                                <p className="text-[10px] text-slate-400">
+                                  চেক মার্ক দিলে ইউজার বিকাশ/নগদে পেমেন্ট বা ফ্রি টাস্ক পূরণ করে আনলক করবে।
+                                </p>
+                              </div>
+                            </label>
+
+                            <div className="space-y-1 shrink-0 sm:w-44">
+                              <label className="text-[11px] font-semibold text-slate-300">
+                                মূল্য / Price (টাকা):
+                              </label>
+                              <input
+                                type="text"
+                                value={formPrice}
+                                onChange={(e) => setFormPrice(e.target.value)}
+                                placeholder="যেমন: ৳১০০ বা ৫০ টাকা"
+                                className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Extra VCFG PIN and Video URL fields */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-800">
+                            <div className="space-y-1">
+                              <label className="text-[11px] font-semibold text-slate-300 flex items-center justify-between">
+                                <span>🔑 আনলক পিন / Secret PIN (ঐচ্ছিক):</span>
+                                <span className="text-[10px] text-amber-400 font-mono">যেমন: 4821</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={formPin}
+                                onChange={(e) => setFormPin(e.target.value)}
+                                placeholder="যেমন: 4821"
+                                className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white font-mono"
+                              />
                               <p className="text-[10px] text-slate-400">
-                                চেক মার্ক দিলে ইউজার বিকাশ/নগদে পেমেন্ট বা ফ্রি টাস্ক পূরণ করে আনলক করবে।
+                                ক্রেতা এই পিন কোড দিলে সাথে সাথে প্রম্পট আনলক হয়ে যাবে।
                               </p>
                             </div>
-                          </label>
 
-                          <div className="space-y-1 shrink-0 sm:w-44">
-                            <label className="text-[11px] font-semibold text-slate-300">
-                              মূল্য / Price (টাকা):
-                            </label>
-                            <input
-                              type="text"
-                              value={formPrice}
-                              onChange={(e) => setFormPrice(e.target.value)}
-                              placeholder="যেমন: ৫০ টাকা বা 50"
-                              className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white"
-                            />
+                            <div className="space-y-1">
+                              <label className="text-[11px] font-semibold text-slate-300 flex items-center justify-between">
+                                <span>🎬 ভিডিও লিঙ্ক / Video URL (টিউটোরিয়াল):</span>
+                                <span className="text-[10px] text-slate-400">YouTube / Embed</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={formVideoUrl}
+                                onChange={(e) => setFormVideoUrl(e.target.value)}
+                                placeholder="https://www.youtube.com/watch?v=..."
+                                className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white"
+                              />
+                              <p className="text-[10px] text-slate-400">
+                                পোস্ট পেজে অটোমেটিক ভিডিও প্লেয়ার প্রদর্শিত হবে।
+                              </p>
+                            </div>
                           </div>
                         </div>
 
