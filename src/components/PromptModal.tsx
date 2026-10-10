@@ -13,12 +13,15 @@ import {
   Code,
   Download,
   CheckCircle2,
+  Lock,
 } from 'lucide-react';
-import { PromptItem, AdSlot } from '../types';
+import { PromptItem, AdSlot, StoreSettings } from '../types';
 import AdRenderer from './AdRenderer';
+import PromptUnlockPanel from './PromptUnlockPanel';
 
 interface PromptModalProps {
   prompt: PromptItem | null;
+  settings?: StoreSettings;
   onClose: () => void;
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
@@ -28,10 +31,12 @@ interface PromptModalProps {
   chatgptUrl: string;
   relatedPrompts: PromptItem[];
   onSelectRelated: (p: PromptItem) => void;
+  showToast?: (msg: string, type: 'success' | 'info' | 'error') => void;
 }
 
 export default function PromptModal({
   prompt,
+  settings,
   onClose,
   isFavorite,
   onToggleFavorite,
@@ -41,11 +46,22 @@ export default function PromptModal({
   chatgptUrl,
   relatedPrompts,
   onSelectRelated,
+  showToast = () => {},
 }: PromptModalProps) {
   const [copied, setCopied] = useState(false);
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
   const [customizedPromptText, setCustomizedPromptText] = useState('');
   const [copiedShareLink, setCopiedShareLink] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
+
+  // Check unlock status
+  useEffect(() => {
+    if (!prompt) return;
+    const isAlreadyUnlocked =
+      localStorage.getItem(`unlocked_${prompt.id}`) === 'true' ||
+      (!prompt.isLocked && !prompt.price);
+    setIsUnlocked(isAlreadyUnlocked);
+  }, [prompt]);
 
   // Initialize variables when prompt opens
   useEffect(() => {
@@ -100,6 +116,8 @@ export default function PromptModal({
     prompt.platform === 'ChatGPT'
       ? chatgptUrl
       : prompt.directActionUrl || bingUrl;
+
+  const promptNeedsUnlock = (prompt.isLocked || !!prompt.price) && !isUnlocked;
 
   return (
     <div
@@ -223,86 +241,98 @@ export default function PromptModal({
                 )}
               </div>
 
-              {/* Variable Customizer (if prompt has variables) */}
-              {prompt.variables && prompt.variables.length > 0 && (
-                <div className="p-4 rounded-xl bg-slate-950/80 border border-cyan-500/30 space-y-3 shadow-inner">
-                  <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-wider">
-                    <Sliders className="w-4 h-4 text-cyan-400" />
-                    <span>Personalize Prompt Variables:</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {prompt.variables.map((v) => (
-                      <div key={v.key} className="space-y-1">
-                        <label className="text-[11px] font-semibold text-slate-300">
-                          {v.label}:
-                        </label>
-                        {v.options && v.options.length > 0 ? (
-                          <select
-                            value={variableValues[v.key] || v.defaultValue}
-                            onChange={(e) => handleVariableChange(v.key, e.target.value)}
-                            className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-cyan-500"
-                          >
-                            {v.options.map((opt) => (
-                              <option key={opt} value={opt}>
-                                {opt}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            value={variableValues[v.key] || ''}
-                            placeholder={v.placeholder || v.defaultValue}
-                            onChange={(e) => handleVariableChange(v.key, e.target.value)}
-                            className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                          />
-                        )}
+              {/* Unlock Panel OR Prompt Text & Copy */}
+              {promptNeedsUnlock ? (
+                <PromptUnlockPanel
+                  prompt={prompt}
+                  settings={settings || ({} as StoreSettings)}
+                  onUnlocked={() => setIsUnlocked(true)}
+                  showToast={showToast}
+                />
+              ) : (
+                <>
+                  {/* Variable Customizer (if prompt has variables) */}
+                  {prompt.variables && prompt.variables.length > 0 && (
+                    <div className="p-4 rounded-xl bg-slate-950/80 border border-cyan-500/30 space-y-3 shadow-inner">
+                      <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-wider">
+                        <Sliders className="w-4 h-4 text-cyan-400" />
+                        <span>Personalize Prompt Variables:</span>
                       </div>
-                    ))}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {prompt.variables.map((v) => (
+                          <div key={v.key} className="space-y-1">
+                            <label className="text-[11px] font-semibold text-slate-300">
+                              {v.label}:
+                            </label>
+                            {v.options && v.options.length > 0 ? (
+                              <select
+                                value={variableValues[v.key] || v.defaultValue}
+                                onChange={(e) => handleVariableChange(v.key, e.target.value)}
+                                className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-cyan-500"
+                              >
+                                {v.options.map((opt) => (
+                                  <option key={opt} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="text"
+                                value={variableValues[v.key] || ''}
+                                placeholder={v.placeholder || v.defaultValue}
+                                onChange={(e) => handleVariableChange(v.key, e.target.value)}
+                                className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Prompt Text Display Box */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <Code className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Ready Prompt Text:</span>
+                      </span>
+                      <span className="text-[11px] text-cyan-400 font-mono">
+                        {customizedPromptText.length} characters
+                      </span>
+                    </div>
+
+                    <div className="relative p-4 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs sm:text-sm font-mono leading-relaxed whitespace-pre-wrap select-all max-h-56 overflow-y-auto shadow-inner">
+                      {customizedPromptText}
+                    </div>
                   </div>
-                </div>
+
+                  {/* Big Copy Button */}
+                  <button
+                    id="btn-modal-copy-prompt"
+                    onClick={handleCopy}
+                    className={`w-full py-3.5 px-6 rounded-xl font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all shadow-xl ${
+                      copied
+                        ? 'bg-emerald-500 text-slate-950 shadow-emerald-500/20'
+                        : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 shadow-cyan-500/25 hover:scale-[1.01]'
+                    }`}
+                  >
+                    {copied ? (
+                      <>
+                        <CheckCircle2 className="w-5 h-5" />
+                        <span>Prompt Copied to Clipboard! ✨</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-5 h-5" />
+                        <span>Copy Customized Prompt (1-Click)</span>
+                      </>
+                    )}
+                  </button>
+                </>
               )}
-
-              {/* Prompt Text Display Box */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <Code className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Ready Prompt Text:</span>
-                  </span>
-                  <span className="text-[11px] text-cyan-400 font-mono">
-                    {customizedPromptText.length} characters
-                  </span>
-                </div>
-
-                <div className="relative p-4 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs sm:text-sm font-mono leading-relaxed whitespace-pre-wrap select-all max-h-56 overflow-y-auto shadow-inner">
-                  {customizedPromptText}
-                </div>
-              </div>
-
-              {/* Big Copy Button */}
-              <button
-                id="btn-modal-copy-prompt"
-                onClick={handleCopy}
-                className={`w-full py-3.5 px-6 rounded-xl font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all shadow-xl ${
-                  copied
-                    ? 'bg-emerald-500 text-slate-950 shadow-emerald-500/20'
-                    : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 shadow-cyan-500/25 hover:scale-[1.01]'
-                }`}
-              >
-                {copied ? (
-                  <>
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span>Prompt Copied to Clipboard! ✨</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-5 h-5" />
-                    <span>Copy Customized Prompt (1-Click)</span>
-                  </>
-                )}
-              </button>
 
               {/* Quick How to Use Guide */}
               <div className="p-3.5 rounded-xl bg-slate-950/50 border border-slate-800/80 space-y-1.5 text-xs text-slate-400">
