@@ -30,6 +30,7 @@ import {
   CheckCheck,
   ArrowLeft,
   GitBranch,
+  GraduationCap,
 } from 'lucide-react';
 import {
   StoreData,
@@ -196,6 +197,8 @@ export default function AdminPanel({
   const [formImageUrl, setFormImageUrl] = useState('');
   const [formDirectUrl, setFormDirectUrl] = useState('https://www.bing.com/images/create');
   const [formVariablesStr, setFormVariablesStr] = useState('NAME:Your Name:Arif');
+  const [formIsLocked, setFormIsLocked] = useState(false);
+  const [formPrice, setFormPrice] = useState('');
 
   // Categories management state
   const [newCatName, setNewCatName] = useState('');
@@ -298,6 +301,8 @@ export default function AdminPanel({
     setFormImageUrl('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80');
     setFormDirectUrl('https://www.bing.com/images/create');
     setFormVariablesStr('NAME:Your Name:Arif');
+    setFormIsLocked(false);
+    setFormPrice('');
     setIsAddingPrompt(false);
     setEditingPromptId(null);
   };
@@ -316,6 +321,8 @@ export default function AdminPanel({
     setFormPromptText(prompt.promptText);
     setFormImageUrl(prompt.previewImageUrl || prompt.thumbnailUrl || '');
     setFormDirectUrl(prompt.directActionUrl || 'https://www.bing.com/images/create');
+    setFormIsLocked(!!prompt.isLocked);
+    setFormPrice(prompt.price || '');
 
     if (prompt.variables && prompt.variables.length > 0) {
       const vStr = prompt.variables
@@ -388,6 +395,8 @@ export default function AdminPanel({
             thumbnailUrl: safeImage,
             directActionUrl: formDirectUrl.trim(),
             variables,
+            isLocked: formIsLocked,
+            price: formPrice.trim() || undefined,
             updatedAt: new Date().toISOString(),
           };
         }
@@ -409,6 +418,8 @@ export default function AdminPanel({
         thumbnailUrl: safeImage,
         directActionUrl: formDirectUrl.trim(),
         variables,
+        isLocked: formIsLocked,
+        price: formPrice.trim() || undefined,
         views: 1,
         copies: 0,
         likes: 0,
@@ -1376,6 +1387,39 @@ export default function AdminPanel({
                             placeholder="NAME:Your Name:Arif; AGE:Your Age:20"
                             className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono"
                           />
+                        </div>
+
+                        {/* Lock & Premium Price Controls (Promptbox style) */}
+                        <div className="p-3.5 rounded-xl bg-slate-900/90 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <label className="flex items-center gap-2.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formIsLocked}
+                              onChange={(e) => setFormIsLocked(e.target.checked)}
+                              className="w-4 h-4 rounded text-amber-500 bg-slate-950 border-slate-700 focus:ring-0"
+                            />
+                            <div>
+                              <span className="font-bold text-xs text-amber-300 flex items-center gap-1.5">
+                                <span>🔒 Lock Post (পেমেন্ট বা টাস্ক ভেরিফাই দিয়ে আনলক)</span>
+                              </span>
+                              <p className="text-[10px] text-slate-400">
+                                চেক মার্ক দিলে ইউজার বিকাশ/নগদে পেমেন্ট বা ফ্রি টাস্ক পূরণ করে আনলক করবে।
+                              </p>
+                            </div>
+                          </label>
+
+                          <div className="space-y-1 shrink-0 sm:w-44">
+                            <label className="text-[11px] font-semibold text-slate-300">
+                              মূল্য / Price (টাকা):
+                            </label>
+                            <input
+                              type="text"
+                              value={formPrice}
+                              onChange={(e) => setFormPrice(e.target.value)}
+                              placeholder="যেমন: ৫০ টাকা বা 50"
+                              className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white"
+                            />
+                          </div>
                         </div>
 
                         <div className="flex items-center justify-end gap-2 pt-2">
@@ -2608,6 +2652,369 @@ export default function AdminPanel({
                           type="text"
                           value={storeData.settings.footerText}
                           onChange={(e) => handleUpdateSettings({ footerText: e.target.value })}
+                          className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="font-semibold text-slate-300">Buyers / Users Counter Text (যেমন: ৫০০+ সন্তুষ্ট ক্রেতা)</label>
+                        <input
+                          type="text"
+                          value={storeData.settings.buyersCount || '৫০০+ সন্তুষ্ট ক্রেতা'}
+                          onChange={(e) => handleUpdateSettings({ buyersCount: e.target.value })}
+                          placeholder="৫০০+ সন্তুষ্ট ক্রেতা"
+                          className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Course Settings (Promptbox style) */}
+                  <div className="p-5 rounded-2xl bg-slate-950 border border-violet-500/30 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <GraduationCap className="w-5 h-5 text-violet-400" />
+                        <h4 className="font-bold text-sm text-white">Course Settings (কোর্স সেটিংস)</h4>
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={storeData.settings.course?.enabled !== false}
+                          onChange={(e) =>
+                            handleUpdateSettings({
+                              course: {
+                                ...storeData.settings.course,
+                                enabled: e.target.checked,
+                                title: storeData.settings.course?.title || 'কমপ্লিট AI প্রম্পট ইঞ্জিনিয়ারিং ও ওয়েবসাইট মেকিং কোর্স',
+                                subtitle: storeData.settings.course?.subtitle || 'AI দিয়ে আকর্ষণীয় ওয়েবসাইট, ভাইরাল প্রম্পট এবং ফ্রিল্যান্সিং কাজ শেখার সম্পূর্ণ প্র্যাক্টিক্যাল গাইডলাইন।',
+                                price: storeData.settings.course?.price || '৯৯৯ টাকা',
+                                url: storeData.settings.course?.url || 'https://t.me/premiumwebstore',
+                              },
+                            })
+                          }
+                          className="w-4 h-4 rounded text-violet-600 bg-slate-900 border-slate-700"
+                        />
+                        <span>কোর্স সেকশন চালু রাখুন</span>
+                      </label>
+                    </div>
+
+                    <div className="space-y-3 text-xs">
+                      <div className="space-y-1">
+                        <label className="font-semibold text-slate-300">Course Title</label>
+                        <input
+                          type="text"
+                          value={storeData.settings.course?.title || 'কমপ্লিট AI প্রম্পট ইঞ্জিনিয়ারিং ও ওয়েবসাইট মেকিং কোর্স'}
+                          onChange={(e) =>
+                            handleUpdateSettings({
+                              course: {
+                                ...storeData.settings.course,
+                                enabled: storeData.settings.course?.enabled !== false,
+                                title: e.target.value,
+                                subtitle: storeData.settings.course?.subtitle || '',
+                                price: storeData.settings.course?.price || '৯৯৯ টাকা',
+                                url: storeData.settings.course?.url || '',
+                              },
+                            })
+                          }
+                          className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="font-semibold text-slate-300">Course Subtitle / Details</label>
+                        <textarea
+                          rows={2}
+                          value={storeData.settings.course?.subtitle || 'AI দিয়ে আকর্ষণীয় ওয়েবসাইট, ভাইরাল প্রম্পট এবং ফ্রিল্যান্সিং কাজ শেখার সম্পূর্ণ প্র্যাক্টিক্যাল গাইডলাইন।'}
+                          onChange={(e) =>
+                            handleUpdateSettings({
+                              course: {
+                                ...storeData.settings.course,
+                                enabled: storeData.settings.course?.enabled !== false,
+                                title: storeData.settings.course?.title || '',
+                                subtitle: e.target.value,
+                                price: storeData.settings.course?.price || '৯৯৯ টাকা',
+                                url: storeData.settings.course?.url || '',
+                              },
+                            })
+                          }
+                          className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="font-semibold text-slate-300">Course Price (যেমন: ৯৯৯ টাকা)</label>
+                          <input
+                            type="text"
+                            value={storeData.settings.course?.price || '৯৯৯ টাকা'}
+                            onChange={(e) =>
+                              handleUpdateSettings({
+                                course: {
+                                  ...storeData.settings.course,
+                                  enabled: storeData.settings.course?.enabled !== false,
+                                  title: storeData.settings.course?.title || '',
+                                  subtitle: storeData.settings.course?.subtitle || '',
+                                  price: e.target.value,
+                                  url: storeData.settings.course?.url || '',
+                                },
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="font-semibold text-slate-300">Course Link / Enrollment URL</label>
+                          <input
+                            type="text"
+                            value={storeData.settings.course?.url || 'https://t.me/premiumwebstore'}
+                            onChange={(e) =>
+                              handleUpdateSettings({
+                                course: {
+                                  ...storeData.settings.course,
+                                  enabled: storeData.settings.course?.enabled !== false,
+                                  title: storeData.settings.course?.title || '',
+                                  subtitle: storeData.settings.course?.subtitle || '',
+                                  price: storeData.settings.course?.price || '৯৯৯ টাকা',
+                                  url: e.target.value,
+                                },
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment & PIN Settings (Bkash, Nagad, Rocket & Secret PIN) */}
+                  <div className="p-5 rounded-2xl bg-slate-950 border border-amber-500/30 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-5 h-5 text-amber-400" />
+                        <h4 className="font-bold text-sm text-white">Payment & Unlock PIN Settings (বিকাশ, নগদ ও আনলক PIN)</h4>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <label className="font-semibold text-pink-300">bKash Personal Number</label>
+                          <input
+                            type="text"
+                            value={storeData.settings.payment?.bkashNumber || '01927661298'}
+                            onChange={(e) =>
+                              handleUpdateSettings({
+                                payment: {
+                                  ...storeData.settings.payment,
+                                  enabled: true,
+                                  defaultPrice: storeData.settings.payment?.defaultPrice || '৫০ টাকা',
+                                  bkashNumber: e.target.value,
+                                  nagadNumber: storeData.settings.payment?.nagadNumber || '01927661298',
+                                  rocketNumber: storeData.settings.payment?.rocketNumber || '01927661298',
+                                  adminPin: storeData.settings.payment?.adminPin || '7890',
+                                  whatsappSupport: storeData.settings.payment?.whatsappSupport || '8801927661298',
+                                },
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="font-semibold text-amber-300">Nagad Personal Number</label>
+                          <input
+                            type="text"
+                            value={storeData.settings.payment?.nagadNumber || '01927661298'}
+                            onChange={(e) =>
+                              handleUpdateSettings({
+                                payment: {
+                                  ...storeData.settings.payment,
+                                  enabled: true,
+                                  defaultPrice: storeData.settings.payment?.defaultPrice || '৫০ টাকা',
+                                  bkashNumber: storeData.settings.payment?.bkashNumber || '01927661298',
+                                  nagadNumber: e.target.value,
+                                  rocketNumber: storeData.settings.payment?.rocketNumber || '01927661298',
+                                  adminPin: storeData.settings.payment?.adminPin || '7890',
+                                  whatsappSupport: storeData.settings.payment?.whatsappSupport || '8801927661298',
+                                },
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="font-semibold text-purple-300">Rocket Personal Number</label>
+                          <input
+                            type="text"
+                            value={storeData.settings.payment?.rocketNumber || '01927661298'}
+                            onChange={(e) =>
+                              handleUpdateSettings({
+                                payment: {
+                                  ...storeData.settings.payment,
+                                  enabled: true,
+                                  defaultPrice: storeData.settings.payment?.defaultPrice || '৫০ টাকা',
+                                  bkashNumber: storeData.settings.payment?.bkashNumber || '01927661298',
+                                  nagadNumber: storeData.settings.payment?.nagadNumber || '01927661298',
+                                  rocketNumber: e.target.value,
+                                  adminPin: storeData.settings.payment?.adminPin || '7890',
+                                  whatsappSupport: storeData.settings.payment?.whatsappSupport || '8801927661298',
+                                },
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <label className="font-semibold text-emerald-300">আনলক Secret PIN (যে কোড দিয়ে ইউজার আনলক করবে)</label>
+                          <input
+                            type="text"
+                            value={storeData.settings.payment?.adminPin || '7890'}
+                            onChange={(e) =>
+                              handleUpdateSettings({
+                                payment: {
+                                  ...storeData.settings.payment,
+                                  enabled: true,
+                                  defaultPrice: storeData.settings.payment?.defaultPrice || '৫০ টাকা',
+                                  bkashNumber: storeData.settings.payment?.bkashNumber || '01927661298',
+                                  nagadNumber: storeData.settings.payment?.nagadNumber || '01927661298',
+                                  rocketNumber: storeData.settings.payment?.rocketNumber || '01927661298',
+                                  adminPin: e.target.value,
+                                  whatsappSupport: storeData.settings.payment?.whatsappSupport || '8801927661298',
+                                },
+                              })
+                            }
+                            placeholder="যেমন: 7890"
+                            className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-emerald-500/50 text-white font-mono font-bold text-center tracking-widest"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="font-semibold text-slate-300">Default Prompt Price (ডিফল্ট দাম)</label>
+                          <input
+                            type="text"
+                            value={storeData.settings.payment?.defaultPrice || '৫০ টাকা'}
+                            onChange={(e) =>
+                              handleUpdateSettings({
+                                payment: {
+                                  ...storeData.settings.payment,
+                                  enabled: true,
+                                  defaultPrice: e.target.value,
+                                  bkashNumber: storeData.settings.payment?.bkashNumber || '01927661298',
+                                  nagadNumber: storeData.settings.payment?.nagadNumber || '01927661298',
+                                  rocketNumber: storeData.settings.payment?.rocketNumber || '01927661298',
+                                  adminPin: storeData.settings.payment?.adminPin || '7890',
+                                  whatsappSupport: storeData.settings.payment?.whatsappSupport || '8801927661298',
+                                },
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="font-semibold text-slate-300">WhatsApp Help Number (880 দিয়ে)</label>
+                          <input
+                            type="text"
+                            value={storeData.settings.payment?.whatsappSupport || '8801927661298'}
+                            onChange={(e) =>
+                              handleUpdateSettings({
+                                payment: {
+                                  ...storeData.settings.payment,
+                                  enabled: true,
+                                  defaultPrice: storeData.settings.payment?.defaultPrice || '৫০ টাকা',
+                                  bkashNumber: storeData.settings.payment?.bkashNumber || '01927661298',
+                                  nagadNumber: storeData.settings.payment?.nagadNumber || '01927661298',
+                                  rocketNumber: storeData.settings.payment?.rocketNumber || '01927661298',
+                                  adminPin: storeData.settings.payment?.adminPin || '7890',
+                                  whatsappSupport: e.target.value,
+                                },
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Task Verify System Settings (Promptbox style) */}
+                  <div className="p-5 rounded-2xl bg-slate-950 border border-cyan-500/30 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-cyan-400" />
+                        <h4 className="font-bold text-sm text-white">Task Verify System (ফ্রি টাস্ক ভেরিফাই সেটিংস)</h4>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <label className="font-semibold text-slate-300">কাউন্টডাউন টাইমার (সেকেন্ড)</label>
+                          <input
+                            type="number"
+                            min={2}
+                            max={60}
+                            value={storeData.settings.taskVerify?.taskSeconds || 4}
+                            onChange={(e) =>
+                              handleUpdateSettings({
+                                taskVerify: {
+                                  ...storeData.settings.taskVerify,
+                                  enabled: true,
+                                  taskSeconds: parseInt(e.target.value, 10) || 4,
+                                  task1Url: storeData.settings.taskVerify?.task1Url || 'https://www.bing.com/images/create',
+                                  task2Url: storeData.settings.taskVerify?.task2Url || 'https://chatgpt.com',
+                                  autoUnlockAfterTasks: true,
+                                },
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-center"
+                          />
+                        </div>
+
+                        <div className="space-y-1 sm:col-span-2">
+                          <label className="font-semibold text-slate-300">টাস্ক ১ লিংক (ভিজিট লিংক)</label>
+                          <input
+                            type="text"
+                            value={storeData.settings.taskVerify?.task1Url || 'https://www.bing.com/images/create'}
+                            onChange={(e) =>
+                              handleUpdateSettings({
+                                taskVerify: {
+                                  ...storeData.settings.taskVerify,
+                                  enabled: true,
+                                  taskSeconds: storeData.settings.taskVerify?.taskSeconds || 4,
+                                  task1Url: e.target.value,
+                                  task2Url: storeData.settings.taskVerify?.task2Url || 'https://chatgpt.com',
+                                  autoUnlockAfterTasks: true,
+                                },
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="font-semibold text-slate-300">টাস্ক ২ লিংক (দ্বিতীয় ভিজিট লিংক)</label>
+                        <input
+                          type="text"
+                          value={storeData.settings.taskVerify?.task2Url || 'https://chatgpt.com'}
+                          onChange={(e) =>
+                            handleUpdateSettings({
+                              taskVerify: {
+                                ...storeData.settings.taskVerify,
+                                enabled: true,
+                                taskSeconds: storeData.settings.taskVerify?.taskSeconds || 4,
+                                task1Url: storeData.settings.taskVerify?.task1Url || 'https://www.bing.com/images/create',
+                                task2Url: e.target.value,
+                                autoUnlockAfterTasks: true,
+                              },
+                            })
+                          }
                           className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white"
                         />
                       </div>
