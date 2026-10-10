@@ -18,7 +18,64 @@
     "bingImageCreatorUrl": "https://www.bing.com/images/create",
     "chatgptUrl": "https://chatgpt.com",
     "enableDirectLinkAdClick": false,
-    "enableGlobalAds": true
+    "enableGlobalAds": true,
+    "buyersCount": "৫০০+ সন্তুষ্ট ক্রেতা",
+    "course": {
+      "enabled": true,
+      "title": "কমপ্লিট AI প্রম্পট ইঞ্জিনিয়ারিং ও ওয়েবসাইট মেকিং কোর্স",
+      "subtitle": "AI দিয়ে আকর্ষণীয় ওয়েবসাইট, ভাইরাল প্রম্পট এবং ফ্রিল্যান্সিং কাজ শেখার সম্পূর্ণ প্র্যাক্টিক্যাল গাইডলাইন।",
+      "price": "৯৯৯ টাকা",
+      "url": "https://t.me/premiumwebstore",
+      "badge": "🔥 নতুন ব্যাচ শুরু",
+      "features": [
+        "রেডি ওয়েবসাইট কোড ও প্রম্পট দিয়ে নিজের সাইট তৈরি",
+        "Bing, Midjourney ও ChatGPT দিয়ে ফটো ও কনটেন্ট জেনারেশন",
+        "ফ্রিল্যান্সিং ও অনলাইন আর্নিং মেথডলজি",
+        "লাইফটাইম VIP সাপোর্ট গ্রুপ ও রিসোর্স এক্সেস"
+      ]
+    },
+    "payment": {
+      "enabled": true,
+      "defaultPrice": "৫০ টাকা",
+      "bkashNumber": "01927661298",
+      "nagadNumber": "01927661298",
+      "rocketNumber": "01927661298",
+      "adminPin": "7890",
+      "whatsappSupport": "8801927661298"
+    },
+    "taskVerify": {
+      "enabled": true,
+      "taskSeconds": 4,
+      "task1Url": "https://www.bing.com/images/create",
+      "task2Url": "https://chatgpt.com",
+      "autoUnlockAfterTasks": true
+    },
+    "reviews": [
+      {
+        "id": "rev-1",
+        "name": "তানভীর আহমেদ",
+        "role": "ডিজিটাল ক্রিয়েটর",
+        "comment": "ভাইরাল 3D উইংস আর কাপল প্রম্পটগুলো দিয়ে অসাধারণ রেজাল্ট পেয়েছি! এক ক্লিকে নাম বসিয়ে সুন্দর ছবি বানানো যায়। দারুণ সাইট!",
+        "rating": 5,
+        "date": "২ দিন আগে"
+      },
+      {
+        "id": "rev-2",
+        "name": "মাহমুদুল হাসান",
+        "role": "ফ্রিল্যান্সার",
+        "comment": "রেডি ওয়েবসাইট কোডগুলো অসাধারণ। আমার ক্লায়েন্টের ল্যান্ডিং পেজ খুব দ্রুত তৈরি করতে পেরেছি। রেকমেন্ডেড!",
+        "rating": 5,
+        "date": "৪ দিন আগে"
+      },
+      {
+        "id": "rev-3",
+        "name": "নাদিয়া সুলতানা",
+        "role": "ইউটিউবার",
+        "comment": "ইউটিউব স্ক্রিপ্ট প্রম্পট আর ইমেজ এডিটিং গাইড অনেক সাহায্য করেছে। ফ্রি আর প্রিমিয়াম দুটো কালেকশনই অসাধারণ।",
+        "rating": 5,
+        "date": "১ সপ্তাহ আগে"
+      }
+    ]
   },
   "categories": [
     {
