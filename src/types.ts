@@ -36,6 +36,9 @@ export interface PromptItem {
   likes?: number;
   featured?: boolean;
   isFeatured?: boolean;
+  isLocked?: boolean;
+  price?: string;
+  taskVerifyRequired?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -79,6 +82,44 @@ export interface AdSlot {
   lastUpdated?: string;
 }
 
+export interface CourseInfo {
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  price: string;
+  url: string;
+  badge?: string;
+  features?: string[];
+}
+
+export interface PaymentConfig {
+  enabled: boolean;
+  defaultPrice: string;
+  bkashNumber: string;
+  nagadNumber: string;
+  rocketNumber?: string;
+  adminPin: string;
+  whatsappSupport: string;
+}
+
+export interface TaskVerifyConfig {
+  enabled: boolean;
+  taskSeconds: number;
+  task1Url: string;
+  task2Url: string;
+  task3Url?: string;
+  autoUnlockAfterTasks: boolean;
+}
+
+export interface ReviewItem {
+  id: string;
+  name: string;
+  comment: string;
+  rating: number;
+  role?: string;
+  date?: string;
+}
+
 export interface StoreSettings {
   siteName: string;
   tagline: string;
@@ -97,6 +138,11 @@ export interface StoreSettings {
   chatgptUrl: string;
   enableDirectLinkAdClick: boolean; // whether clicking external links routes through direct link
   enableGlobalAds: boolean;
+  course?: CourseInfo;
+  payment?: PaymentConfig;
+  taskVerify?: TaskVerifyConfig;
+  buyersCount?: string;
+  reviews?: ReviewItem[];
 }
 
 export interface StoreData {
