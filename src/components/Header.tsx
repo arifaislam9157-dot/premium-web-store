@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Sparkles,
   Search,
@@ -14,6 +14,8 @@ import {
   Bot,
   Image as ImageIcon,
   Home,
+  GraduationCap,
+  Download,
 } from 'lucide-react';
 import { PlatformType } from '../types';
 
@@ -33,6 +35,8 @@ interface HeaderProps {
   bingUrl?: string;
   chatgptUrl?: string;
   siteName: string;
+  courseUrl?: string;
+  onOpenCourse?: () => void;
 }
 
 const PLATFORMS: PlatformType[] = [
@@ -59,8 +63,35 @@ export default function Header({
   bingUrl = 'https://www.bing.com/images/create',
   chatgptUrl = 'https://chatgpt.com',
   siteName = 'Premium Web store',
+  courseUrl,
+  onOpenCourse,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [canInstall, setCanInstall] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstall = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setCanInstall(true);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice;
+      if (choice.outcome === 'accepted') {
+        setCanInstall(false);
+      }
+      setDeferredPrompt(null);
+    } else {
+      alert('অ্যাপ ইনস্টল করতে আপনার ব্রাউজারের থ্রি-ডট মেনু থেকে "Add to Home screen" বা "Install App" অপশনে ক্লিক করুন।');
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md transition-all">
@@ -91,7 +122,7 @@ export default function Header({
             </button>
           </div>
 
-          {/* Navigation Links: Home, AI Test Lab, Image Toolkit */}
+          {/* Navigation Links: Home, AI Test Lab, Image Toolkit, Course */}
           <nav className="hidden md:flex items-center gap-1 lg:gap-2">
             <button
               onClick={() => onNavigate('home')}
@@ -128,6 +159,21 @@ export default function Header({
               <ImageIcon className="w-3.5 h-3.5" />
               <span>Image Toolkit</span>
             </button>
+
+            {/* Course Link (promptbox style) */}
+            <a
+              href={courseUrl || '#course-section'}
+              onClick={(e) => {
+                if (onOpenCourse) {
+                  e.preventDefault();
+                  onOpenCourse();
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-violet-400 bg-violet-500/15 border border-violet-500/30 hover:bg-violet-500 hover:text-slate-950 transition shadow-sm"
+            >
+              <GraduationCap className="w-4 h-4" />
+              <span>কোর্স</span>
+            </a>
           </nav>
 
           {/* Search bar in center */}
@@ -156,6 +202,16 @@ export default function Header({
 
           {/* Right Action Tools */}
           <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Install PWA App Button */}
+            <button
+              onClick={handleInstallApp}
+              className="px-2.5 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500 text-cyan-300 hover:text-slate-950 border border-cyan-500/30 text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+              title="Install Web App"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">অ্যাপ ইনস্টল</span>
+            </button>
+
             {/* Theme Toggle Button (Dark / Light) */}
             <button
               id="themeToggleBtn"
@@ -293,6 +349,35 @@ export default function Header({
             >
               <ImageIcon className="w-4 h-4 text-cyan-400" />
               <span>Image Toolkit (Crop & Filter)</span>
+            </button>
+
+            <a
+              href={courseUrl || '#course-section'}
+              onClick={(e) => {
+                setMobileMenuOpen(false);
+                if (onOpenCourse) {
+                  e.preventDefault();
+                  onOpenCourse();
+                }
+              }}
+              className="w-full flex items-center justify-between p-2.5 rounded-lg bg-violet-500/15 text-violet-300 border border-violet-500/30 text-left font-bold"
+            >
+              <div className="flex items-center gap-2">
+                <GraduationCap className="w-4 h-4" />
+                <span>আমাদের কোর্স (Course)</span>
+              </div>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleInstallApp();
+              }}
+              className="w-full flex items-center gap-2 p-2.5 rounded-lg bg-cyan-500/15 text-cyan-300 font-bold"
+            >
+              <Download className="w-4 h-4" />
+              <span>মোবাইলে অ্যাপ ইনস্টল করুন</span>
             </button>
 
             {telegramLink && (
