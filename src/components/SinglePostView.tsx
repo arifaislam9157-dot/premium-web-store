@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Copy,
@@ -13,12 +13,15 @@ import {
   Heart,
   SlidersHorizontal,
   Edit,
+  Lock,
 } from 'lucide-react';
-import { PromptItem, AdSlot } from '../types';
+import { PromptItem, AdSlot, StoreSettings } from '../types';
 import AdRenderer from './AdRenderer';
+import PromptUnlockPanel from './PromptUnlockPanel';
 
 interface SinglePostViewProps {
   prompt: PromptItem;
+  settings?: StoreSettings;
   onBack: () => void;
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
@@ -34,6 +37,7 @@ interface SinglePostViewProps {
 
 export default function SinglePostView({
   prompt,
+  settings,
   onBack,
   isFavorite,
   onToggleFavorite,
@@ -47,6 +51,14 @@ export default function SinglePostView({
   onEditPrompt,
 }: SinglePostViewProps) {
   const [copied, setCopied] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
+
+  useEffect(() => {
+    const isAlreadyUnlocked =
+      localStorage.getItem(`unlocked_${prompt.id}`) === 'true' ||
+      (!prompt.isLocked && !prompt.price);
+    setIsUnlocked(isAlreadyUnlocked);
+  }, [prompt.id, prompt.isLocked, prompt.price]);
   // Variable values
   const [variableValues, setVariableValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
@@ -194,133 +206,145 @@ export default function SinglePostView({
         </div>
       )}
 
-      {/* Dynamic Variables Customizer (if present) */}
-      {prompt.variables && prompt.variables.length > 0 && (
-        <div className="p-4 rounded-xl bg-slate-900/90 border border-cyan-500/30 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-cyan-400">
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Customize Prompt Variables (নিজের নাম বা টপিক বসান):</span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {prompt.variables.map((v) => (
-              <div key={v.key} className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-400">
-                  {v.label} <code className="text-cyan-400">({`{${v.key}}`})</code>
-                </label>
-                <input
-                  type="text"
-                  value={variableValues[v.key] || ''}
-                  onChange={(e) =>
-                    setVariableValues((prev) => ({ ...prev, [v.key]: e.target.value }))
-                  }
-                  placeholder={v.defaultValue || 'Enter your text...'}
-                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 focus:border-cyan-400 text-xs text-white outline-none"
-                />
+      {/* ===== UNLOCK PANEL (IF LOCKED) OR CODE BOX ===== */}
+      {(prompt.isLocked || prompt.price) && !isUnlocked ? (
+        <PromptUnlockPanel
+          prompt={prompt}
+          settings={settings || ({} as StoreSettings)}
+          onUnlocked={() => setIsUnlocked(true)}
+          showToast={showToast}
+        />
+      ) : (
+        <>
+          {/* Dynamic Variables Customizer (if present) */}
+          {prompt.variables && prompt.variables.length > 0 && (
+            <div className="p-4 rounded-xl bg-slate-900/90 border border-cyan-500/30 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-cyan-400">
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>Customize Prompt Variables (নিজের নাম বা টপিক বসান):</span>
               </div>
-            ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {prompt.variables.map((v) => (
+                  <div key={v.key} className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-400">
+                      {v.label} <code className="text-cyan-400">({`{${v.key}}`})</code>
+                    </label>
+                    <input
+                      type="text"
+                      value={variableValues[v.key] || ''}
+                      onChange={(e) =>
+                        setVariableValues((prev) => ({ ...prev, [v.key]: e.target.value }))
+                      }
+                      placeholder={v.defaultValue || 'Enter your text...'}
+                      className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 focus:border-cyan-400 text-xs text-white outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ===== PREMIUM CODE BOX v3 - COLORFUL NEON GLASS EDITION ===== */}
+          <div className="neon-code-box">
+            <div className="neon-glow-blob blob-1"></div>
+            <div className="neon-glow-blob blob-2"></div>
+
+            <div className="neon-header">
+              <div className="neon-tag">
+                <span className="neon-dots">
+                  <span className="dot dot-red"></span>
+                  <span className="dot dot-yellow"></span>
+                  <span className="dot dot-green"></span>
+                </span>
+                <span className="neon-label">✦ {prompt.platform === 'Web Scripts' ? 'CODE SNIPPET' : 'AI PROMPT'}</span>
+              </div>
+
+              <div className="neon-actions">
+                <button
+                  onClick={handleCopy}
+                  className={`neon-btn ${copied ? 'copied' : ''}`}
+                  title="Copy Code"
+                  type="button"
+                >
+                  {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  <span className="neon-text">{copied ? 'Copied!' : 'Copy'}</span>
+                </button>
+
+                <button
+                  onClick={handleDownload}
+                  className="neon-btn"
+                  title="Download Code/Prompt"
+                  type="button"
+                >
+                  <Download className="w-3 h-3" />
+                  <span className="neon-text">Download</span>
+                </button>
+
+                <button
+                  onClick={handleShare}
+                  className="neon-btn"
+                  title="Share Code"
+                  type="button"
+                >
+                  <Share2 className="w-3 h-3" />
+                  <span className="neon-text">Share</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="neon-content">
+              <pre>{currentPromptText}</pre>
+            </div>
           </div>
-        </div>
-      )}
 
-      {/* ===== PREMIUM CODE BOX v3 - COLORFUL NEON GLASS EDITION ===== */}
-      <div className="neon-code-box">
-        <div className="neon-glow-blob blob-1"></div>
-        <div className="neon-glow-blob blob-2"></div>
+          {/* One-Click Generator Launchers */}
+          <div className="flex flex-wrap items-center gap-3">
+            {prompt.platform.includes('Bing') && (
+              <a
+                href={bingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition"
+              >
+                <span>Open in Microsoft Bing Image Creator</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
 
-        <div className="neon-header">
-          <div className="neon-tag">
-            <span className="neon-dots">
-              <span className="dot dot-red"></span>
-              <span className="dot dot-yellow"></span>
-              <span className="dot dot-green"></span>
-            </span>
-            <span className="neon-label">✦ {prompt.platform === 'Web Scripts' ? 'CODE SNIPPET' : 'AI PROMPT'}</span>
-          </div>
+            {prompt.platform.includes('ChatGPT') && (
+              <a
+                href={chatgptUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition"
+              >
+                <span>Open in OpenAI ChatGPT</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
 
-          <div className="neon-actions">
             <button
               onClick={handleCopy}
-              className={`neon-btn ${copied ? 'copied' : ''}`}
-              title="Copy Code"
-              type="button"
+              className="py-3 px-6 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 border border-slate-700 transition"
             >
-              {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-              <span className="neon-text">{copied ? 'Copied!' : 'Copy'}</span>
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copied ? 'Copied to Clipboard!' : 'Copy Prompt / Code'}</span>
             </button>
 
-            <button
-              onClick={handleDownload}
-              className="neon-btn"
-              title="Download Code/Prompt"
-              type="button"
-            >
-              <Download className="w-3 h-3" />
-              <span className="neon-text">Download</span>
-            </button>
-
-            <button
-              onClick={handleShare}
-              className="neon-btn"
-              title="Share Code"
-              type="button"
-            >
-              <Share2 className="w-3 h-3" />
-              <span className="neon-text">Share</span>
-            </button>
+            {onEditPrompt && (
+              <button
+                type="button"
+                onClick={() => onEditPrompt(prompt)}
+                className="py-3 px-5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500 text-cyan-300 hover:text-slate-950 font-bold text-xs flex items-center justify-center gap-2 border border-cyan-500/40 transition shadow-sm"
+                title="Edit this post in Admin Panel (সংশোধন করুন)"
+              >
+                <Edit className="w-4 h-4" />
+                <span>Edit Post (সংশোধন)</span>
+              </button>
+            )}
           </div>
-        </div>
-
-        <div className="neon-content">
-          <pre>{currentPromptText}</pre>
-        </div>
-      </div>
-
-      {/* One-Click Generator Launchers */}
-      <div className="flex flex-wrap items-center gap-3">
-        {prompt.platform.includes('Bing') && (
-          <a
-            href={bingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition"
-          >
-            <span>Open in Microsoft Bing Image Creator</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        )}
-
-        {prompt.platform.includes('ChatGPT') && (
-          <a
-            href={chatgptUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition"
-          >
-            <span>Open in OpenAI ChatGPT</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        )}
-
-        <button
-          onClick={handleCopy}
-          className="py-3 px-6 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 border border-slate-700 transition"
-        >
-          {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-          <span>{copied ? 'Copied to Clipboard!' : 'Copy Prompt / Code'}</span>
-        </button>
-
-        {onEditPrompt && (
-          <button
-            type="button"
-            onClick={() => onEditPrompt(prompt)}
-            className="py-3 px-5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500 text-cyan-300 hover:text-slate-950 font-bold text-xs flex items-center justify-center gap-2 border border-cyan-500/40 transition shadow-sm"
-            title="Edit this post in Admin Panel (সংশোধন করুন)"
-          >
-            <Edit className="w-4 h-4" />
-            <span>Edit Post (সংশোধন)</span>
-          </button>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Under Code Ad Gadget (Adsterra / Monetag / CPMBid) */}
       {underCodeAdSlot && underCodeAdSlot.enabled && (
