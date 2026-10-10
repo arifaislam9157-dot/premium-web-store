@@ -69,10 +69,18 @@ export function saveGitHubConfig(updates: Partial<GitHubConfig>): GitHubConfig {
   return next;
 }
 
-// Convert Unicode string to base64
-function utf8ToBase64(str: string): string {
+// Convert Unicode string to base64 safely (handles large strings & Unicode without URIError)
+function safeUtf8ToBase64(str: string): string {
   try {
-    return btoa(unescape(encodeURIComponent(str)));
+    const bytes = new TextEncoder().encode(str);
+    let binary = '';
+    const len = bytes.byteLength;
+    const chunkSize = 8192;
+    for (let i = 0; i < len; i += chunkSize) {
+      const chunk = bytes.subarray(i, Math.min(i + chunkSize, len));
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    return btoa(binary);
   } catch {
     return Buffer.from(str, 'utf-8').toString('base64');
   }
@@ -98,7 +106,6 @@ async function putGitHubFile(
           headers: {
             Authorization: `token ${token}`,
             Accept: 'application/vnd.github.v3+json',
-            'User-Agent': 'PremiumWebStore-Sync',
           },
         }
       );
@@ -110,8 +117,8 @@ async function putGitHubFile(
       // file might not exist yet
     }
 
-    // 2. Put file with commit
-    const base64Content = utf8ToBase64(contentStr);
+    // 2. Put file with commit (DO NOT pass User-Agent in browser fetch)
+    const base64Content = safeUtf8ToBase64(contentStr);
     const putRes = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
       {
@@ -120,7 +127,6 @@ async function putGitHubFile(
           Authorization: `token ${token}`,
           Accept: 'application/vnd.github.v3+json',
           'Content-Type': 'application/json',
-          'User-Agent': 'PremiumWebStore-Sync',
         },
         body: JSON.stringify({
           message: commitMessage,
@@ -160,7 +166,7 @@ export async function syncStoreToGitHub(
     customMessage ||
     `feat(store): sync ${data.prompts.length} prompts & ${data.categories.length} categories (${new Date().toISOString()}) [skip ci]`;
 
-  // 1. Try server endpoint first
+  // 1. Try server endpoint first (only if it returns JSON, not static SPA HTML)
   try {
     const res = await fetch('/api/github/sync', {
       method: 'POST',
@@ -168,23 +174,26 @@ export async function syncStoreToGitHub(
       body: JSON.stringify({ data, commitMessage: commitMsg }),
     });
 
-    if (res.ok) {
+    const contentType = res.headers.get('content-type') || '';
+    if (res.ok && contentType.includes('application/json')) {
       const result = await res.json();
-      saveGitHubConfig({
-        lastSyncTime: timestamp,
-        lastCommitSha: result.commitSha,
-      });
-      return {
-        success: true,
-        commitSha: result.commitSha,
-        timestamp,
-      };
+      if (result.success) {
+        saveGitHubConfig({
+          lastSyncTime: timestamp,
+          lastCommitSha: result.commitSha,
+        });
+        return {
+          success: true,
+          commitSha: result.commitSha,
+          timestamp,
+        };
+      }
     }
   } catch {
     // server route unavailable or static host, fall through to client direct sync
   }
 
-  // 2. Direct client GitHub API sync (fallback for Cloudflare Pages or direct browser call)
+  // 2. Direct client GitHub API sync (universal fallback for Cloudflare Workers, Pages, and mobile)
   const storeJsonStr = JSON.stringify(data, null, 2);
   const initialDataTsStr = `import { StoreData } from '../types';\n\nexport const INITIAL_STORE_DATA: StoreData = ${JSON.stringify(
     data,
@@ -211,7 +220,7 @@ export async function syncStoreToGitHub(
     };
   }
 
-  // Also push src/data/initialData.ts so static builds always have latest data
+  // Also push src/data/initialData.ts so static builds and AI Studio workspace stay synchronized
   await putGitHubFile(
     config.owner,
     config.repo,
