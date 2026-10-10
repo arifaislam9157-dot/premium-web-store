@@ -104,11 +104,19 @@ export default function PromptCard({
         )}
       </div>
 
-      {/* Category badge & Platform */}
-      <div className="flex items-center justify-between gap-2 pt-1">
-        <span className="category-badge">
-          {prompt.platform === 'Web Scripts' ? 'Ready Code' : 'AI Prompt'}
-        </span>
+      {/* Category badge & Platform & Price */}
+      <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="category-badge">
+            {prompt.platform === 'Web Scripts' ? 'Ready Code' : 'AI Prompt'}
+          </span>
+          {(prompt.isLocked || prompt.price) && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono shadow-sm">
+              <span>🔒</span>
+              <span>{prompt.price || '৫০ টাকা'}</span>
+            </span>
+          )}
+        </div>
         <span className="text-[11px] text-slate-400 font-mono">
           {prompt.createdAt || '2026-09-20'}
         </span>
