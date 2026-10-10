@@ -1,6 +1,12 @@
 import { StoreData, PromptItem } from '../types';
 import { INITIAL_STORE_DATA } from '../data/initialData';
-import { syncStoreToGitHub } from './githubSync';
+import {
+  syncStoreToGitHub,
+  DEFAULT_GITHUB_OWNER,
+  DEFAULT_GITHUB_REPO,
+  DEFAULT_GITHUB_BRANCH,
+  DEFAULT_GITHUB_PAT,
+} from './githubSync';
 
 const LOCAL_STORAGE_KEY = 'premium_web_store_data_v2';
 const LEGACY_STORAGE_KEY = 'premium_web_store_data_v1';
@@ -8,16 +14,15 @@ const LEGACY_BACKUP_KEY = 'premium_web_store_permanent_backup_v1';
 const ADMIN_AUTH_KEY = 'premium_web_store_admin_token';
 const SAVED_FAVORITES_KEY = 'premium_web_store_favorites';
 
-// GitHub Raw URL for universal multi-device live sync (no server required)
-const GITHUB_RAW_DATA_URL =
-  'https://raw.githubusercontent.com/arifaislam9157-dot/premium-web-store/main/data/store.json';
+// GitHub Raw URL fallback
+const GITHUB_RAW_DATA_URL = `https://raw.githubusercontent.com/${DEFAULT_GITHUB_OWNER}/${DEFAULT_GITHUB_REPO}/${DEFAULT_GITHUB_BRANCH}/data/store.json`;
+const JSDELIVR_RAW_DATA_URL = `https://cdn.jsdelivr.net/gh/${DEFAULT_GITHUB_OWNER}/${DEFAULT_GITHUB_REPO}@${DEFAULT_GITHUB_BRANCH}/data/store.json`;
 
 /**
  * Safely parse JSON from localStorage cache
  */
 function getStoredLocalData(): StoreData | null {
   try {
-    // Clean up legacy backup keys that caused deleted prompts to resurrect
     if (localStorage.getItem(LEGACY_BACKUP_KEY)) {
       localStorage.removeItem(LEGACY_BACKUP_KEY);
     }
@@ -36,14 +41,16 @@ function getStoredLocalData(): StoreData | null {
 }
 
 /**
- * Fetch live data from server or GitHub raw endpoint.
- * Works seamlessly on Cloudflare Workers / Pages, Render, and any mobile/desktop browser.
+ * Fetch live data from server or GitHub API.
+ * Works seamlessly on Cloudflare Workers, Render, and ANY mobile/desktop browser.
+ * Real-time GitHub API endpoint completely bypasses CDN caching.
  */
 async function fetchRemoteData(): Promise<StoreData | null> {
-  // 1. Try local server proxy endpoint (for dev / Render)
+  // 1. Try local server proxy endpoint (if running Node.js / Render)
   try {
     const res = await fetch('/api/data', { cache: 'no-store' });
-    if (res.ok) {
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) {
       const data = await res.json();
       if (data && Array.isArray(data.prompts)) {
         return data;
@@ -53,9 +60,29 @@ async function fetchRemoteData(): Promise<StoreData | null> {
     // /api/data not available on static hosts like Cloudflare workers.dev
   }
 
-  // 2. Fetch directly from GitHub raw data (Universal single source of truth)
+  // 2. Fetch directly from GitHub REST API with raw header (ZERO CDN delay, always 100% live)
   try {
-    // Add cache-busting timestamp query to bypass CDN caching
+    const ghApiUrl = `https://api.github.com/repos/${DEFAULT_GITHUB_OWNER}/${DEFAULT_GITHUB_REPO}/contents/data/store.json?ref=${DEFAULT_GITHUB_BRANCH}&_t=${Date.now()}`;
+    const ghRes = await fetch(ghApiUrl, {
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/vnd.github.v3.raw',
+        Authorization: `token ${DEFAULT_GITHUB_PAT}`,
+      },
+    });
+
+    if (ghRes.ok) {
+      const ghData = (await ghRes.json()) as StoreData;
+      if (ghData && Array.isArray(ghData.prompts) && Array.isArray(ghData.categories)) {
+        return ghData;
+      }
+    }
+  } catch (err) {
+    console.warn('[Storage] GitHub API raw fetch failed, trying fallbacks:', err);
+  }
+
+  // 3. Fallback: GitHub raw URL
+  try {
     const url = `${GITHUB_RAW_DATA_URL}?t=${Date.now()}`;
     const ghRes = await fetch(url, {
       cache: 'no-store',
@@ -70,8 +97,25 @@ async function fetchRemoteData(): Promise<StoreData | null> {
         return ghData;
       }
     }
-  } catch (err) {
-    console.warn('[Storage] Live GitHub data fetch failed (device might be offline):', err);
+  } catch {
+    // try next fallback
+  }
+
+  // 4. Fallback: jsDelivr CDN
+  try {
+    const url = `${JSDELIVR_RAW_DATA_URL}?t=${Date.now()}`;
+    const jsdelivrRes = await fetch(url, {
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+    if (jsdelivrRes.ok) {
+      const data = (await jsdelivrRes.json()) as StoreData;
+      if (data && Array.isArray(data.prompts)) {
+        return data;
+      }
+    }
+  } catch {
+    // ignored
   }
 
   return null;
@@ -88,24 +132,7 @@ export async function fetchStoreData(): Promise<StoreData> {
   const remoteData = await fetchRemoteData();
 
   if (remoteData) {
-    // Determine if local browser has an un-pushed newer edit made in this exact session
-    let useLocal = false;
-    if (localData && localData.lastUpdated && remoteData.lastUpdated) {
-      const localTime = new Date(localData.lastUpdated).getTime();
-      const remoteTime = new Date(remoteData.lastUpdated).getTime();
-      // If local data was updated more than 2 seconds after remote (and within the last 10 minutes)
-      if (localTime > remoteTime + 2000 && Date.now() - localTime < 10 * 60 * 1000) {
-        useLocal = true;
-      }
-    }
-
-    if (useLocal && localData) {
-      // Background push local changes to GitHub to bring remote in sync
-      syncStoreToGitHub(localData, 'fix: auto-sync local draft to GitHub').catch(() => {});
-      return localData;
-    }
-
-    // Remote data is authoritative: update local cache
+    // Authoritative remote data from GitHub replaces local cache
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(remoteData));
       localStorage.removeItem(LEGACY_STORAGE_KEY);
@@ -128,7 +155,7 @@ export async function fetchStoreData(): Promise<StoreData> {
 
 /**
  * Persist store data everywhere:
- * 1. Immediate save to localStorage (with updated timestamp)
+ * 1. Immediate save to localStorage
  * 2. Attempt save to server disk (/api/data if running Node.js)
  * 3. Clean up legacy keys so deleted items never resurrect
  */
@@ -154,11 +181,15 @@ export async function persistStoreData(data: StoreData): Promise<boolean> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedData),
     });
-    return res.ok;
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) {
+      return true;
+    }
   } catch {
     // Static host (Cloudflare Workers/Pages), client sync handles GitHub directly
-    return true;
   }
+
+  return true;
 }
 
 export async function verifyAdminPassword(password: string): Promise<boolean> {
