@@ -29,6 +29,8 @@ import AdminPanel from './components/AdminPanel';
 import Footer from './components/Footer';
 import AdRenderer from './components/AdRenderer';
 import Toast, { ToastMessage } from './components/Toast';
+import CourseSection from './components/CourseSection';
+import ReviewsSection from './components/ReviewsSection';
 
 const HERO_LINES = [
   '🌐 এক ক্লিকে ওয়েবসাইট রেডি',
@@ -438,6 +440,20 @@ export default function App() {
         bingUrl={storeData.settings.bingImageCreatorUrl}
         chatgptUrl={storeData.settings.chatgptUrl}
         siteName={storeData.settings.siteName}
+        courseUrl={storeData.settings.course?.url}
+        onOpenCourse={() => {
+          if (currentView !== 'home') {
+            setCurrentView('home');
+          }
+          setTimeout(() => {
+            const el = document.getElementById('course-section');
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth' });
+            } else if (storeData.settings.course?.url) {
+              window.open(storeData.settings.course.url, '_blank', 'noopener,noreferrer');
+            }
+          }, 100);
+        }}
       />
 
       {/* Main Container */}
@@ -532,6 +548,11 @@ export default function App() {
               </div>
             )}
 
+            {/* Course Highlight Section (Promptbox style) */}
+            <div id="course-section">
+              <CourseSection course={storeData.settings.course} />
+            </div>
+
             {/* Category Filter Section */}
             <section id="prompts-section">
               <CategoryFilter
@@ -612,6 +633,12 @@ export default function App() {
                 })}
               </div>
             )}
+
+            {/* Customer Reviews & Testimonials Section */}
+            <ReviewsSection
+              reviews={storeData.settings.reviews}
+              buyersCount={storeData.settings.buyersCount}
+            />
           </>
         )}
 
@@ -635,6 +662,7 @@ export default function App() {
         {currentView === 'single-post' && activePrompt && (
           <SinglePostView
             prompt={activePrompt}
+            settings={storeData.settings}
             onBack={handleBackFromSinglePost}
             isFavorite={favorites.includes(activePrompt.id)}
             onToggleFavorite={handleToggleFavorite}
